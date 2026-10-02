@@ -49,3 +49,11 @@ flowchart TD
     style Reportes fill:#222,stroke:#fff,color:#fff
     style BD fill:#222,stroke:#fff,color:#fff
 ```
+
+## Descripción de la Arquitectura Inicial
+
+La solución está organizada en **tres capas** desplegadas en contenedores para soportar alta demanda:
+
+* **Presentación (React.js):** Ofrece el *Módulo de Captura* (Mobile-First para brigadistas) y el *Dashboard* (explotación de datos para coordinadores).
+* **Lógica de Negocio (Node.js):** Gestiona la seguridad vía *JWT*, consolida reportes y utiliza un *Módulo de Recepción (Cola de Mensajes)* para procesar picos de 3,000 usuarios sin saturar el sistema.
+* **Datos (PostgreSQL):** Garantiza la persistencia, normalización e integridad del padrón único de damnificados.
