@@ -1,4 +1,4 @@
-# Ejercicio 03: Identificar Actores
+# Identificar Actores
 
 Identificación de quienes interactúan con el sistema, según el alcance del proyecto.
 
