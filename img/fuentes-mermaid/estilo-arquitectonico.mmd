@@ -1,0 +1,92 @@
+flowchart TD
+    classDef actor fill:#f9f9f9,stroke:#333,stroke-width:1px;
+    classDef frontend fill:#fff,stroke:#333,stroke-width:1px;
+    classDef capa1 fill:#e6f2ff,stroke:#66a3ff,stroke-width:1px;
+    classDef capa2 fill:#e6ffe6,stroke:#66cc66,stroke-width:1px;
+    classDef capa3 fill:#fff2e6,stroke:#ff9933,stroke-width:1px;
+    classDef infra fill:#f2e6ff,stroke:#9966cc,stroke-width:1px;
+    classDef db fill:#f9f9f9,stroke:#333,stroke-width:1px;
+
+    Brigadista["Brigadista"]:::actor
+    Coordinador["Coordinador de Defensa Civil"]:::actor
+
+    subgraph FRONTEND ["Cliente Web (Navegador móvil / escritorio)"]
+        UI["HTML / CSS / JS\n[Bootstrap Mobile-First + Dashboard]"]:::frontend
+    end
+
+    Brigadista --> UI
+    Coordinador --> UI
+
+    subgraph BACKEND ["«monolito» Laravel Empadronamiento [PHP 8 - Laravel]"]
+        direction TB
+
+        MW["Rutas + Middlewares (transversales)\nauth:sanctum - validación de entrada - manejo de errores"]:::infra
+
+        subgraph PRESENTACION ["1. CAPA DE PRESENTACIÓN (Renderiza vistas en el servidor)"]
+            direction LR
+            V_Cap["módulo captura\n(captura/create.blade.php)"]:::capa1
+            V_Dash["módulo dashboard\n(dashboard/index.blade.php)"]:::capa1
+            V_Rep["módulo reportes\n(reportes/*.blade.php)"]:::capa1
+        end
+
+        subgraph CONTROL ["2. CAPA DE CONTROL (Recibe peticiones, delega en services)"]
+            direction LR
+            C_Auth["AuthController\n(login, logout, token)"]:::capa2
+            C_Cap["EmpadronamientoController"]:::capa2
+            C_Pad["PadronController"]:::capa2
+            C_Rep["ReporteController"]:::capa2
+        end
+
+        subgraph NEGOCIO ["3. CAPA DE LÓGICA DE NEGOCIO (Reglas de negocio y coordinación)"]
+            direction LR
+            S_Auth["AuthService\n(valida credenciales, emite token Sanctum)"]:::capa3
+            S_Cap["EmpadronamientoService\n(validación, duplicados, encolamiento)"]:::capa3
+            S_Pad["PadronService\n(consolidación del padrón)"]:::capa3
+            S_Rep["ReporteService\n(métricas por zona)"]:::capa3
+        end
+
+        subgraph COLA ["PROCESAMIENTO ASÍNCRONO (Laravel Queues)"]
+            direction LR
+            J_Cap["RegistrarDamnificadoJob\n(worker independiente)"]:::infra
+        end
+
+        subgraph DATOS ["4. CAPA DE DATOS (Persistencia con Eloquent)"]
+            direction LR
+            M_User["User\n(Eloquent)"]:::capa1
+            M_Dam["Damnificado\n(Eloquent)"]:::capa1
+            M_Zona["Zona\n(Eloquent)"]:::capa1
+            MI["migrations\n(clave única DNI, claves foráneas)"]:::capa1
+        end
+
+        UI -- "HTTPS" --> MW
+        MW --> PRESENTACION
+        V_Cap --> C_Cap
+        V_Dash --> C_Pad
+        V_Rep --> C_Rep
+
+        C_Auth --> S_Auth
+        C_Cap --> S_Cap
+        C_Pad --> S_Pad
+        C_Rep --> S_Rep
+
+        S_Cap -.->|"encola registro"| J_Cap
+        J_Cap --> M_Dam
+        S_Cap --> M_Dam
+        S_Pad --> M_Dam
+        S_Rep --> M_Zona
+        S_Auth --> M_User
+        M_Dam --> MI
+    end
+
+    DB[("MySQL\n(padron_db)")]:::db
+
+    M_Dam -- "SQL - TCP 3306" --> DB
+    M_Zona -- "SQL - TCP 3306" --> DB
+    M_User -- "SQL - TCP 3306" --> DB
+
+    subgraph LEYENDA ["Reglas de la arquitectura"]
+        R1["1. Cada capa solo invoca a la capa inmediatamente inferior.
+2. Un módulo no accede a los models ni a las tablas de otro módulo sin pasar por su service.
+3. La comunicación dentro de un módulo se hace llamando a su service.
+4. Toda la lógica de negocio vive en services, jamás en controllers ni en vistas Blade."]
+    end

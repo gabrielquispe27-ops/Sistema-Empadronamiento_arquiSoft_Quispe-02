@@ -1,0 +1,18 @@
+sequenceDiagram
+    actor B as Brigadista
+    participant W as Controller / Web
+    participant S as EmpadronamientoService
+    participant Q as Laravel Queues
+    participant WK as Worker (job)
+    participant DB as MySQL
+
+    B->>W: POST /captura (datos del damnificado)
+    W->>S: registrar(datos)
+    S->>S: valida DNI y duplicados
+    S->>Q: dispatch(RegistrarDamnificadoJob)
+    Q-->>W: job encolado
+    W-->>B: respuesta inmediata ("registro en proceso")
+    loop Procesamiento asíncrono
+        WK->>Q: toma el siguiente job
+        WK->>DB: persiste con Eloquent
+    end

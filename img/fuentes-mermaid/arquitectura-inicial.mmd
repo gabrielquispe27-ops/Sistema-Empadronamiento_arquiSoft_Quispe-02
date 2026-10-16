@@ -1,0 +1,52 @@
+flowchart TD
+    subgraph ACTORES ["ACTORES"]
+        Brigadista["Brigadista"]
+        Coordinador["Coordinador de Defensa Civil"]
+    end
+
+    subgraph PRESENTACION ["PRESENTACIÓN (Blade + Bootstrap)"]
+        Captura["Vista de Captura (Mobile-First)"]
+        Dashboard["Vista de Explotación (Dashboard)"]
+    end
+
+    subgraph NEGOCIO ["LÓGICA DE NEGOCIO (Laravel - MVC con servicios)"]
+        Auth["Autenticación (Sanctum)"]
+        Rutas["Rutas + Middlewares"]
+        Controllers["Controllers"]
+        Services["Services (reglas de negocio)"]
+        Jobs["Jobs de Registro (Encolamiento)"]
+    end
+
+    subgraph DATOS ["DATOS (Eloquent ORM)"]
+        Models["Models (Damnificado, Zona, Usuario)"]
+        BD[("Base de Datos Relacional (MySQL - Padrón)")]
+    end
+
+    Brigadista --> Captura
+    Coordinador --> Dashboard
+
+    Captura --> Rutas
+    Dashboard --> Rutas
+    Rutas --> Auth
+    Rutas --> Controllers
+    Controllers --> Services
+    Services --> Jobs
+    Jobs --> Models
+    Services --> Models
+    Models --> BD
+
+    style ACTORES fill:#222,stroke:#fff,stroke-width:2px,color:#fff
+    style PRESENTACION fill:#222,stroke:#fff,stroke-width:2px,color:#fff
+    style NEGOCIO fill:#222,stroke:#fff,stroke-width:2px,color:#fff
+    style DATOS fill:#222,stroke:#fff,stroke-width:2px,color:#fff
+    style Brigadista fill:#222,stroke:#fff,color:#fff
+    style Coordinador fill:#222,stroke:#fff,color:#fff
+    style Captura fill:#222,stroke:#fff,color:#fff
+    style Dashboard fill:#222,stroke:#fff,color:#fff
+    style Auth fill:#222,stroke:#fff,color:#fff
+    style Rutas fill:#222,stroke:#fff,color:#fff
+    style Controllers fill:#222,stroke:#fff,color:#fff
+    style Services fill:#222,stroke:#fff,color:#fff
+    style Jobs fill:#222,stroke:#fff,color:#fff
+    style Models fill:#222,stroke:#fff,color:#fff
+    style BD fill:#222,stroke:#fff,color:#fff

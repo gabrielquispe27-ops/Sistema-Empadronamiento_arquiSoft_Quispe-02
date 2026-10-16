@@ -1,0 +1,32 @@
+flowchart TD
+    classDef pres fill:#e8f4f8,stroke:#007acc,stroke-width:1px,color:#333
+    classDef ctrl fill:#e8f8e8,stroke:#2ca02c,stroke-width:1px,color:#333
+    classDef biz fill:#fff8e6,stroke:#e6a800,stroke-width:1px,color:#333
+    classDef data fill:#f4e8f8,stroke:#9467bd,stroke-width:1px,color:#333
+    classDef ext fill:#f9f9f9,stroke:#666,stroke-width:1px,color:#333
+
+    V["«vista»\ncaptura/create.blade.php\n(Bootstrap mobile-first)"]:::pres
+
+    subgraph LARAVEL ["«aplicación» Laravel"]
+        R["«ruta»\nPOST /captura"]:::ctrl
+        MW["«middleware»\nauth:sanctum\n+ validación de entrada"]:::ctrl
+        C["«controller»\nEmpadronamientoController::store"]:::ctrl
+        S["«service»\nEmpadronamientoService\n(valida, detecta duplicado, encola)"]:::biz
+        J["«job»\nRegistrarDamnificadoJob\n(procesado por worker)"]:::biz
+        M["«model»\nDamnificado (Eloquent)"]:::data
+        MI["«migration»\nclave única DNI"]:::data
+    end
+
+    DB[("«sistema externo»\nMySQL (padron_db)")]:::ext
+
+    V -- "POST (token Sanctum)" --> R
+    R --> MW
+    MW --> C
+    C -- "invoca" --> S
+    S -. "dispatch()" .-> J
+    S --> M
+    J --> M
+    M --> MI
+    M -- "SQL" --> DB
+
+    J -.->|"respuesta al usuario en segundo plano"| V

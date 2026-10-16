@@ -1,0 +1,52 @@
+flowchart LR
+    classDef pres fill:#e8f4f8,stroke:#007acc,stroke-width:1px,color:#333
+    classDef ctrl fill:#e8f8e8,stroke:#2ca02c,stroke-width:1px,color:#333
+    classDef biz fill:#fff8e6,stroke:#e6a800,stroke-width:1px,color:#333
+    classDef data fill:#f4e8f8,stroke:#9467bd,stroke-width:1px,color:#333
+    classDef ext fill:#f9f9f9,stroke:#666,stroke-width:1px,color:#333
+
+    Usuario["Actor\n(Brigadista / Coordinador)"]:::ext
+
+    subgraph APP ["«aplicación» Laravel Empadronamiento [PHP 8 / Laravel]"]
+        subgraph PRES ["PRESENTACIÓN\nresources/views/ (Blade + Bootstrap)"]
+            direction TB
+            V1["captura/create.blade.php\n(formulario mobile-first)"]:::pres
+            V2["dashboard/index.blade.php\n(gráficos y consolidados)"]:::pres
+        end
+
+        subgraph CTRL ["CONTROL\nroutes/ + app/Http/"]
+            direction TB
+            MW["«middleware»\nAuthenticate (Sanctum)\nauth:sanctum"]:::ctrl
+            C1["«controller»\nEmpadronamientoController\n(store, index)"]:::ctrl
+        end
+
+        subgraph BIZ ["NEGOCIO\napp/Services/"]
+            direction TB
+            S1["«service»\nEmpadronamientoService\nvalidar, duplicado, registrar"]:::biz
+            S2["«job»\nRegistrarDamnificadoJob\nprocesa la cola"]:::biz
+        end
+
+        subgraph DATA ["DATOS\napp/Models/ + database/"]
+            direction TB
+            M1["«model»\nDamnificado\n(Eloquent)"]:::data
+            M2["«model»\nZona\n(Eloquent)"]:::data
+            MI["«migration»\nschema MySQL\n(clave única DNI)"]:::data
+        end
+    end
+
+    BD["«sistema externo»\nMySQL\n(padron_db)"]:::ext
+
+    Usuario -- "HTTP" --> PRES
+    PRES --> MW
+    MW --> C1
+    C1 -- "invoca" --> S1
+    S1 -. "encola" .-> S2
+    S2 -- "usa" --> M1
+    S1 --> M1
+    M1 --> BD
+    M2 --> BD
+    MI -. "define" .-> BD
+
+    PRES ~~~ CTRL
+    CTRL ~~~ BIZ
+    BIZ ~~~ DATA

@@ -1,0 +1,12 @@
+flowchart LR
+    classDef high fill:#e8f8e8,stroke:#2ca02c,stroke-width:1px,color:#333
+    classDef low fill:#f4e8f8,stroke:#9467bd,stroke-width:1px,color:#333
+
+    C["«controller»\nEmpadronamientoController"]:::high
+    S["«abstracción»\nEmpadronamientoServiceInterface\n(registrar, validar)"]:::high
+    SI["«detalle»\nEmpadronamientoService\n(implementación concreta)"]:::low
+    Q["«detalle»\nLaravel Queues\n(driver database/redis)"]:::low
+
+    C --> S
+    SI -. "implementa" .-> S
+    SI --> Q

@@ -1,0 +1,45 @@
+classDiagram
+    class EmpadronamientoController {
+        +store(Request request)
+        +index()
+    }
+    class EmpadronamientoServiceInterface {
+        <<interface>>
+        +registrar(array datos)
+        +esDuplicado(string dni)
+    }
+    class EmpadronamientoService {
+        -validarDNI(string dni)
+        +registrar(array datos)
+        +esDuplicado(string dni)
+    }
+    class RegistrarDamnificadoJob {
+        +__construct(Damnificado damnificado)
+        +handle(EmpadronamientoService service)
+    }
+    class Damnificado {
+        +string dni
+        +string nombres
+        +string apellidos
+        +int zona_id
+        +string daños_materiales
+        +zona() Zona
+    }
+    class Zona {
+        +string nombre
+        +string nivel_afectacion
+        +damnificados() Coleccion
+    }
+    class AuthService {
+        +login(string email, string password)
+        +logout(User user)
+    }
+
+    EmpadronamientoController --> EmpadronamientoServiceInterface : invoca
+    EmpadronamientoService ..|> EmpadronamientoServiceInterface : implementa
+    EmpadronamientoService --> Damnificado : persiste / consulta
+    EmpadronamientoService --> RegistrarDamnificadoJob : dispatch (encola)
+    RegistrarDamnificadoJob --> EmpadronamientoService : handle()
+    Damnificado --> Zona : pertenece a (zona_id)
+    AuthController --> AuthService : invoca
+    AuthService --> User : valida y emite token Sanctum
