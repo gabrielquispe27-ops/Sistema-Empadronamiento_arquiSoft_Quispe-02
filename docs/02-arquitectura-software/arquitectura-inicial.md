@@ -9,35 +9,37 @@ flowchart TD
         Coordinador["Coordinador de Defensa Civil"]
     end
 
-    subgraph PRESENTACION ["PRESENTACIÓN (Blade + Bootstrap)"]
+    subgraph PRESENTACION ["PRESENTACIÓN (Blade + Bootstrap + LocalStorage)"]
         Captura["Vista de Captura (Mobile-First)"]
-        Dashboard["Vista de Explotación (Dashboard)"]
+        Dashboard["Vista de Explotación (Dashboard y Reportes)"]
     end
 
-    subgraph NEGOCIO ["LÓGICA DE NEGOCIO (Laravel - MVC con servicios)"]
-        Auth["Autenticación (Sanctum)"]
-        Rutas["Rutas + Middlewares"]
-        Controllers["Controllers"]
-        Services["Services (reglas de negocio)"]
-        Jobs["Jobs de Registro (Encolamiento)"]
+    subgraph NEGOCIO ["CONTROL Y LÓGICA DE NEGOCIO (Laravel - MVC con Servicios)"]
+        Rutas["Rutas + Middlewares (Sanctum)"]
+        Controllers["Controllers (Auth, Empadronamiento, Padrón, Reportes)"]
+        Services["Services (Reglas de negocio y validación)"]
+        Redis[("Broker de Colas y Caché (Redis)")]
+        Jobs["Workers / Jobs de Registro (RegistrarDamnificadoJob)"]
     end
 
-    subgraph DATOS ["DATOS (Eloquent ORM)"]
-        Models["Models (Damnificado, Zona, Usuario)"]
-        BD[("Base de Datos Relacional (MySQL - Padrón)")]
+    subgraph DATOS ["DATOS (Eloquent ORM + MySQL)"]
+        Models["Models (Damnificado, Zona, User)"]
+        BD[("Base de Datos Relacional (MySQL - padron_db)")]
     end
 
     Brigadista --> Captura
     Coordinador --> Dashboard
 
-    Captura --> Rutas
-    Dashboard --> Rutas
-    Rutas --> Auth
+    Captura -- "HTTPS (POST / GET)" --> Rutas
+    Dashboard -- "HTTPS (GET)" --> Rutas
     Rutas --> Controllers
+    Controllers -. "renderiza HTML" .-> Captura
+    Controllers -. "renderiza HTML" .-> Dashboard
     Controllers --> Services
-    Services --> Jobs
-    Jobs --> Models
-    Services --> Models
+    Services -- "SETNX DNI + dispatch(DTO)" --> Redis
+    Redis -- "consume job" --> Jobs
+    Jobs -- "upsert()" --> Models
+    Services -- "lectura padrón / login" --> Models
     Models --> BD
 
     style ACTORES fill:#222,stroke:#fff,stroke-width:2px,color:#fff
@@ -48,19 +50,19 @@ flowchart TD
     style Coordinador fill:#222,stroke:#fff,color:#fff
     style Captura fill:#222,stroke:#fff,color:#fff
     style Dashboard fill:#222,stroke:#fff,color:#fff
-    style Auth fill:#222,stroke:#fff,color:#fff
     style Rutas fill:#222,stroke:#fff,color:#fff
     style Controllers fill:#222,stroke:#fff,color:#fff
     style Services fill:#222,stroke:#fff,color:#fff
+    style Redis fill:#7a1f1f,stroke:#fff,color:#fff
     style Jobs fill:#222,stroke:#fff,color:#fff
     style Models fill:#222,stroke:#fff,color:#fff
-    style BD fill:#222,stroke:#fff,color:#fff
+    style BD fill:#1f5c1f,stroke:#fff,color:#fff
 ```
 
 ## Descripción de la Arquitectura Inicial
 
-La solución es un **monolito Laravel** con presentación en servidor (Blade), separado en capas y con procesamiento asíncrono para soportar alta demanda:
+La solución se estructura como un **Monolito Modular en Laravel** con renderizado en servidor (**Blade**), organizado en capas y respaldado por **Redis** y **MySQL** para absorber picos de alta concurrencia:
 
-* **Presentación (Blade + Bootstrap):** Ofrece la *Vista de Captura* (Mobile-First para brigadistas en campo) y el *Dashboard* (explotación de datos para coordinadores), renderizadas por el servidor.
-* **Lógica de Negocio (Laravel):** Rutas y middlewares validan el token de *Sanctum*, los *controllers* coordinan la petición y los *services* concentran las reglas de validación y consolidación del padrón. El registro masivo pasa por *Jobs de Registro (Laravel Queues)* para procesar picos de hasta 3,000 usuarios sin saturar el sistema.
-* **Datos (Eloquent + MySQL):** Garantiza la persistencia, normalización e integridad del padrón único de damnificados mediante modelos Eloquent sobre MySQL.
+* **Presentación (Blade + Bootstrap + JS LocalStorage):** Ofrece la *Vista de Captura* (*Mobile-First* con persistencia temporal en el navegador ante microcortes de señal) para los brigadistas en campo y el *Dashboard* de explotación para los coordinadores de Defensa Civil.
+* **Control y Lógica de Negocio (Laravel + Redis):** Las rutas y middlewares validan el token de **Laravel Sanctum**; los *controllers* coordinan la petición HTTP y delegan en los *services*. En el registro masivo, `EmpadronamientoService` valida el DNI y verifica duplicados atómicamente en **Redis** (`SETNX`), despachando un DTO ligero a la cola en memoria para que los *Workers* (`RegistrarDamnificadoJob`) procesen hasta 3,000 registros concurrentes sin saturar el motor relacional.
+* **Datos (Eloquent + MySQL):** Los *workers* persisten de forma controlada e idempotente (`upsert`) a través de los modelos **Eloquent** sobre **MySQL (`padron_db`)**, garantizando la normalización y la restricción física de unicidad del DNI (`UNIQUE`).

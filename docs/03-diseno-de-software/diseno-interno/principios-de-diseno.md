@@ -16,11 +16,12 @@ Aplicación de los principios SOLID al código Laravel del sistema, con un ejemp
 flowchart LR
     classDef high fill:#e8f8e8,stroke:#2ca02c,stroke-width:1px,color:#333
     classDef low fill:#f4e8f8,stroke:#9467bd,stroke-width:1px,color:#333
+    classDef queue fill:#fde8e8,stroke:#d9534f,stroke-width:1px,color:#333
 
     C["«controller»\nEmpadronamientoController"]:::high
-    S["«abstracción»\nEmpadronamientoServiceInterface\n(registrar, validar)"]:::high
+    S["«abstracción»\nEmpadronamientoServiceInterface\n(registrar, esDuplicado)"]:::high
     SI["«detalle»\nEmpadronamientoService\n(implementación concreta)"]:::low
-    Q["«detalle»\nLaravel Queues\n(driver database/redis)"]:::low
+    Q["«detalle»\nLaravel Queues + Redis\n(SETNX + dispatch DTO)"]:::queue
 
     C --> S
     SI -. "implementa" .-> S

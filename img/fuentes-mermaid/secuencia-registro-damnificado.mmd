@@ -1,18 +1,21 @@
 sequenceDiagram
     actor B as Brigadista
-    participant W as Controller / Web
+    participant W as EmpadronamientoController
     participant S as EmpadronamientoService
-    participant Q as Laravel Queues
-    participant WK as Worker (job)
-    participant DB as MySQL
+    participant R as Redis (Cola + SETNX)
+    participant WK as Worker (RegistrarDamnificadoJob)
+    participant DB as MySQL (padron_db)
 
     B->>W: POST /captura (datos del damnificado)
     W->>S: registrar(datos)
-    S->>S: valida DNI y duplicados
-    S->>Q: dispatch(RegistrarDamnificadoJob)
-    Q-->>W: job encolado
-    W-->>B: respuesta inmediata ("registro en proceso")
-    loop Procesamiento asíncrono
-        WK->>Q: toma el siguiente job
-        WK->>DB: persiste con Eloquent
+    S->>S: validarDNI(dni)
+    S->>R: SETNX dni:{dni} (deduplicación O(1))
+    R-->>S: OK (DNI único reservado)
+    S->>R: dispatch(RegistrarDamnificadoJob(datos))
+    R-->>S: job encolado en memoria
+    S-->>W: true
+    W-->>B: Respuesta inmediata < 2 s ("Registro en proceso")
+    loop Procesamiento asíncrono en Worker
+        WK->>R: BLPOP siguiente job
+        WK->>DB: Damnificado::upsertPadron(datos) (UNIQUE dni)
     end

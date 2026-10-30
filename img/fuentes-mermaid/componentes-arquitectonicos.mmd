@@ -1,32 +1,41 @@
 flowchart TD
+    classDef client fill:#666666,stroke:#fff,stroke-width:2px,color:#fff
     classDef pres fill:#e8f4f8,stroke:#007acc,stroke-width:1px,color:#333
     classDef ctrl fill:#e8f8e8,stroke:#2ca02c,stroke-width:1px,color:#333
     classDef biz fill:#fff8e6,stroke:#e6a800,stroke-width:1px,color:#333
     classDef data fill:#f4e8f8,stroke:#9467bd,stroke-width:1px,color:#333
-    classDef ext fill:#f9f9f9,stroke:#666,stroke-width:1px,color:#333
+    classDef queue fill:#fde8e8,stroke:#d9534f,stroke-width:1px,color:#333
+    classDef ext fill:#e8f8e8,stroke:#2d882d,stroke-width:1px,color:#333
 
-    V["«vista»\ncaptura/create.blade.php\n(Bootstrap mobile-first)"]:::pres
+    Nav["«cliente web»\nNavegador Móvil del Brigadista\n(Bootstrap + JS LocalStorage)"]:::client
 
-    subgraph LARAVEL ["«aplicación» Laravel"]
+    subgraph LARAVEL ["«contenedor» App Web Laravel"]
         R["«ruta»\nPOST /captura"]:::ctrl
-        MW["«middleware»\nauth:sanctum\n+ validación de entrada"]:::ctrl
+        MW["«middleware + request»\nauth:sanctum\n+ StoreDamnificadoRequest"]:::ctrl
         C["«controller»\nEmpadronamientoController::store"]:::ctrl
-        S["«service»\nEmpadronamientoService\n(valida, detecta duplicado, encola)"]:::biz
-        J["«job»\nRegistrarDamnificadoJob\n(procesado por worker)"]:::biz
-        M["«model»\nDamnificado (Eloquent)"]:::data
-        MI["«migration»\nclave única DNI"]:::data
+        V["«vista»\ncaptura/create.blade.php\n(Confirmación de recepción)"]:::pres
+        S["«service»\nEmpadronamientoService\n(valida DNI, deduplica en Redis y encola DTO)"]:::biz
     end
 
-    DB[("«sistema externo»\nMySQL (padron_db)")]:::ext
+    Redis[("«contenedor broker»\nRedis 7 (AOF)\nCola + SETNX dni")]:::queue
 
-    V -- "POST (token Sanctum)" --> R
+    subgraph WORKER ["«contenedor» Worker de Cola (queue:work)"]
+        J["«job»\nRegistrarDamnificadoJob\n(handle: recibe array DTO)"]:::biz
+        M["«model»\nDamnificado (Eloquent)\nupsertPadron()"]:::data
+        MI["«migration»\nUNIQUE (dni)"]:::data
+    end
+
+    DB[("«contenedor BD»\nMySQL 8 (padron_db)")]:::ext
+
+    Nav -- "1. POST /captura (Token Sanctum)" --> R
     R --> MW
     MW --> C
-    C -- "invoca" --> S
-    S -. "dispatch()" .-> J
-    S --> M
-    J --> M
-    M --> MI
-    M -- "SQL" --> DB
+    C -- "2. registrar(datos)" --> S
+    S -- "3. SETNX dni + dispatch(DTO)" --> Redis
+    C -. "4. Respuesta inmediata (< 2 s)" .-> V
+    V -. "HTML confirmación" .-> Nav
 
-    J -.->|"respuesta al usuario en segundo plano"| V
+    Redis -- "5. BLPOP job (asíncrono)" --> J
+    J -- "6. upsertPadron(datos)" --> M
+    M --> MI
+    M -- "7. SQL INSERT / UPSERT" --> DB

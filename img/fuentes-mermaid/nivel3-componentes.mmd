@@ -1,57 +1,77 @@
 flowchart TD
+    classDef client fill:#666666,stroke:#fff,stroke-width:2px,color:#fff
     classDef pres fill:#e8f4f8,stroke:#007acc,stroke-width:1px,color:#333
     classDef ctrl fill:#e8f8e8,stroke:#2ca02c,stroke-width:1px,color:#333
     classDef biz fill:#fff8e6,stroke:#e6a800,stroke-width:1px,color:#333
     classDef data fill:#f4e8f8,stroke:#9467bd,stroke-width:1px,color:#333
-    classDef ext fill:#999999,stroke:#fff,stroke-width:2px,color:#fff
+    classDef queue fill:#d9534f,stroke:#fff,stroke-width:2px,color:#fff
+    classDef db fill:#2d882d,stroke:#fff,stroke-width:2px,color:#fff
 
-    subgraph PRES ["Capa de Presentación (Blade + Bootstrap)"]
-        V_Cap["captura/create.blade.php\n(formulario mobile-first)"]:::pres
-        V_Dash["dashboard/index.blade.php\n(consolidado del padrón)"]:::pres
+    Nav["Cliente Web\n(Navegador Móvil / Escritorio)"]:::client
+
+    subgraph WEB_CONTAINER ["Contenedor: App Web Laravel"]
+        subgraph CTRL ["1. Capa de Control (routes/ + app/Http/)"]
+            MW["Middleware auth:sanctum\n+ FormRequest Validation"]:::ctrl
+            C_Auth["AuthController"]:::ctrl
+            C_Cap["EmpadronamientoController"]:::ctrl
+            C_Pad["PadronController"]:::ctrl
+            C_Rep["ReporteController"]:::ctrl
+        end
+
+        subgraph PRES ["2. Capa de Presentación (resources/views/ - Blade + Bootstrap)"]
+            V_Auth["auth/login.blade.php"]:::pres
+            V_Cap["captura/create.blade.php\n(Formulario Mobile-First)"]:::pres
+            V_Dash["dashboard/index.blade.php\n(Padrón Consolidado)"]:::pres
+            V_Rep["reportes/*.blade.php\n(Estadísticas por Zona)"]:::pres
+        end
+
+        subgraph BIZ ["3. Capa de Negocio (app/Services/)"]
+            S_Auth["AuthService\n(Emite/revoca tokens Sanctum)"]:::biz
+            S_Cap["EmpadronamientoService\n(Valida DNI, deduplica en Redis y encola DTO)"]:::biz
+            S_Pad["PadronService\n(Consulta padrón consolidado)"]:::biz
+            S_Rep["ReporteService\n(Métricas por zona con caché)"]:::biz
+        end
+
+        subgraph DATA ["4. Capa de Datos (app/Models/)"]
+            M_User["User (Eloquent)"]:::data
+            M_Dam["Damnificado (Eloquent)"]:::data
+            M_Zona["Zona (Eloquent)"]:::data
+        end
     end
 
-    subgraph CTRL ["Capa de Control (app/Http)"]
-        MW["Middleware auth:sanctum\n(valida token y permisos)"]:::ctrl
-        C_Auth["AuthController"]:::ctrl
-        C_Cap["EmpadronamientoController"]:::ctrl
-        C_Pad["PadronController"]:::ctrl
-        C_Rep["ReporteController"]:::ctrl
+    subgraph WORKER_CONTAINER ["Contenedor: Workers de Cola (queue:work)"]
+        J_Reg["RegistrarDamnificadoJob\n(app/Jobs/ - Consume DTO y persiste)"]:::biz
     end
 
-    subgraph BIZ ["Capa de Negocio (app/Services + app/Jobs)"]
-        S_Auth["AuthService\n(emite/revoca tokens)"]:::biz
-        S_Cap["EmpadronamientoService\n(valida, anti-duplicados, encola)"]:::biz
-        S_Pad["PadronService\n(consolidación)"]:::biz
-        S_Rep["ReporteService\n(métricas por zona)"]:::biz
-        J_Reg["RegistrarDamnificadoJob\n(unidad encolable)"]:::biz
-    end
+    Redis[("Contenedor: Redis 7\n(Colas + Deduplicación DNI + Caché)")]:::queue
+    DB[("Contenedor: MySQL 8\n(padron_db)")]:::db
 
-    subgraph DATA ["Capa de Datos (app/Models + database)"]
-        M_User["User"]:::data
-        M_Dam["Damnificado"]:::data
-        M_Zona["Zona"]:::data
-    end
-
-    DB[("MySQL\npadron_db")]:::ext
-
-    V_Cap -- "POST /captura" --> MW
-    V_Dash -- "GET /dashboard" --> MW
+    Nav -- "HTTPS (GET / POST)" --> MW
+    MW --> C_Auth
     MW --> C_Cap
     MW --> C_Pad
     MW --> C_Rep
+
+    C_Auth -. "renderiza" .-> V_Auth
+    C_Cap -. "renderiza" .-> V_Cap
+    C_Pad -. "renderiza" .-> V_Dash
+    C_Rep -. "renderiza" .-> V_Rep
 
     C_Auth --> S_Auth
     C_Cap --> S_Cap
     C_Pad --> S_Pad
     C_Rep --> S_Rep
 
-    S_Cap -. "dispatch()" .-> J_Reg
-    S_Cap --> M_Dam
+    S_Auth --> M_User
+    S_Cap -- "SETNX dni + dispatch(DTO)" --> Redis
+    Redis -- "BLPOP job" --> J_Reg
+    J_Reg -- "Damnificado::upsert()" --> M_Dam
+
     S_Pad --> M_Dam
     S_Pad --> M_Zona
     S_Rep --> M_Zona
-    S_Auth --> M_User
-    J_Reg --> M_Dam
+    S_Rep -- "Cache::remember()" --> Redis
+
+    M_User --> DB
     M_Dam --> DB
     M_Zona --> DB
-    M_User --> DB

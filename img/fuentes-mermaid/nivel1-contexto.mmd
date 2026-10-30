@@ -1,15 +1,13 @@
 flowchart TD
     classDef person fill:#08427b,stroke:#fff,stroke-width:2px,color:#fff
     classDef system fill:#1168bd,stroke:#fff,stroke-width:2px,color:#fff
-    classDef ext fill:#999999,stroke:#fff,stroke-width:2px,color:#fff
 
-    Brigadista["Brigadista\n(usa el sistema en campo,\ndesde un dispositivo móvil)"]:::person
-    Coordinador["Coordinador de Defensa Civil\n(analiza el padrón y toma decisiones)"]:::person
+    Brigadista["Brigadista\n[Persona]\nDesplegado en zona de emergencia;\ncaptura datos desde dispositivo móvil"]:::person
+    Coordinador["Coordinador de Defensa Civil\n[Persona]\nSupervisa la emergencia, analiza el padrón\ny prioriza la ayuda humanitaria"]:::person
 
-    Sistema["Sistema de Empadronamiento\nen Zonas de Emergencia\n[Sistema transaccional de respuesta rápida]"]:::system
+    subgraph BOUNDARY ["Límite del Sistema"]
+        Sistema["Sistema de Empadronamiento\nen Zonas de Emergencia\n[Sistema de Software]\nCaptura, valida, encola asíncronamente y consolida\nel padrón único de damnificados y daños por zona"]:::system
+    end
 
-    MySQL[("MySQL\n(base de datos del padrón)")]:::ext
-
-    Brigadista -- "registra damnificados y reporta daños\nen situaciones de alta concurrencia" --> Sistema
-    Coordinador -- "consulta dashboards y reportes\nconsolidados por zona" --> Sistema
-    Sistema -- "persiste el padrón transaccional" --> MySQL
+    Brigadista -- "Registra damnificados y reporta daños\nen alta concurrencia (HTTPS / Mobile-First)" --> Sistema
+    Coordinador -- "Consulta dashboard y reportes estadísticos\nconsolidados por zona (HTTPS)" --> Sistema

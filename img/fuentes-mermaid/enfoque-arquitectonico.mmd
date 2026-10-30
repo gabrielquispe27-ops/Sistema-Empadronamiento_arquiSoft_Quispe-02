@@ -3,30 +3,31 @@ flowchart LR
     classDef ctrl fill:#e8f8e8,stroke:#2ca02c,stroke-width:1px,color:#333
     classDef biz fill:#fff8e6,stroke:#e6a800,stroke-width:1px,color:#333
     classDef data fill:#f4e8f8,stroke:#9467bd,stroke-width:1px,color:#333
+    classDef queue fill:#fde8e8,stroke:#d9534f,stroke-width:1px,color:#333
     classDef ext fill:#f9f9f9,stroke:#666,stroke-width:1px,color:#333
 
     Usuario["Actor\n(Brigadista / Coordinador)"]:::ext
 
     subgraph APP ["«aplicación» Laravel Empadronamiento [PHP 8 / Laravel]"]
-        subgraph PRES ["PRESENTACIÓN\nresources/views/ (Blade + Bootstrap)"]
+        subgraph CTRL ["1. CONTROL\nroutes/ + app/Http/"]
+            direction TB
+            MW["«middleware»\nAuthenticate (Sanctum)\nauth:sanctum"]:::ctrl
+            C1["«controller»\nEmpadronamientoController\n(create, store)"]:::ctrl
+        end
+
+        subgraph PRES ["2. PRESENTACIÓN\nresources/views/ (Blade + Bootstrap)"]
             direction TB
             V1["captura/create.blade.php\n(formulario mobile-first)"]:::pres
             V2["dashboard/index.blade.php\n(gráficos y consolidados)"]:::pres
         end
 
-        subgraph CTRL ["CONTROL\nroutes/ + app/Http/"]
+        subgraph BIZ ["3. NEGOCIO\napp/Services/ + app/Jobs/"]
             direction TB
-            MW["«middleware»\nAuthenticate (Sanctum)\nauth:sanctum"]:::ctrl
-            C1["«controller»\nEmpadronamientoController\n(store, index)"]:::ctrl
+            S1["«service»\nEmpadronamientoService\n(valida DNI, deduplica en Redis, encola DTO)"]:::biz
+            S2["«job / worker»\nRegistrarDamnificadoJob\n(consume DTO y ejecuta upsert)"]:::biz
         end
 
-        subgraph BIZ ["NEGOCIO\napp/Services/"]
-            direction TB
-            S1["«service»\nEmpadronamientoService\nvalidar, duplicado, registrar"]:::biz
-            S2["«job»\nRegistrarDamnificadoJob\nprocesa la cola"]:::biz
-        end
-
-        subgraph DATA ["DATOS\napp/Models/ + database/"]
+        subgraph DATA ["4. DATOS\napp/Models/ + database/"]
             direction TB
             M1["«model»\nDamnificado\n(Eloquent)"]:::data
             M2["«model»\nZona\n(Eloquent)"]:::data
@@ -34,19 +35,17 @@ flowchart LR
         end
     end
 
-    BD["«sistema externo»\nMySQL\n(padron_db)"]:::ext
+    Redis[("«contenedor broker»\nRedis 7\n(Colas + Caché DNI)")]:::queue
+    BD[("«contenedor BD»\nMySQL 8\n(padron_db)")]:::ext
 
-    Usuario -- "HTTP" --> PRES
-    PRES --> MW
+    Usuario -- "HTTPS (GET/POST)" --> MW
     MW --> C1
-    C1 -- "invoca" --> S1
-    S1 -. "encola" .-> S2
-    S2 -- "usa" --> M1
-    S1 --> M1
+    C1 -. "renderiza HTML" .-> V1
+    C1 -. "renderiza HTML" .-> V2
+    C1 -- "invoca (DIP)" --> S1
+    S1 -- "SETNX dni + dispatch(DTO)" --> Redis
+    Redis -- "BLPOP" --> S2
+    S2 -- "upsertPadron()" --> M1
     M1 --> BD
     M2 --> BD
-    MI -. "define" .-> BD
-
-    PRES ~~~ CTRL
-    CTRL ~~~ BIZ
-    BIZ ~~~ DATA
+    MI -. "define esquema" .-> BD

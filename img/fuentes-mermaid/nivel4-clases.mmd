@@ -1,45 +1,72 @@
 classDiagram
     class EmpadronamientoController {
-        +store(Request request)
-        +index()
+        -EmpadronamientoServiceInterface service
+        +create() View
+        +store(StoreDamnificadoRequest request) RedirectResponse
     }
+
     class EmpadronamientoServiceInterface {
         <<interface>>
-        +registrar(array datos)
-        +esDuplicado(string dni)
+        +registrar(array datos) bool
+        +esDuplicado(string dni) bool
     }
+
     class EmpadronamientoService {
-        -validarDNI(string dni)
-        +registrar(array datos)
-        +esDuplicado(string dni)
+        -validarDNI(string dni) bool
+        +registrar(array datos) bool
+        +esDuplicado(string dni) bool
     }
+
     class RegistrarDamnificadoJob {
-        +__construct(Damnificado damnificado)
-        +handle(EmpadronamientoService service)
+        <<ShouldQueue>>
+        -array datosDamnificado
+        +int tries
+        +__construct(array datosDamnificado)
+        +handle() void
+        +failed(Throwable exception) void
     }
+
     class Damnificado {
+        +int id
         +string dni
         +string nombres
         +string apellidos
         +int zona_id
-        +string daños_materiales
-        +zona() Zona
-    }
-    class Zona {
-        +string nombre
-        +string nivel_afectacion
-        +damnificados() Coleccion
-    }
-    class AuthService {
-        +login(string email, string password)
-        +logout(User user)
+        +string danos_materiales
+        +zona() BelongsTo
+        +upsertPadron(array datos)$ void
     }
 
-    EmpadronamientoController --> EmpadronamientoServiceInterface : invoca
+    class Zona {
+        +int id
+        +string nombre
+        +string nivel_afectacion
+        +damnificados() HasMany
+    }
+
+    class AuthController {
+        -AuthService authService
+        +login(LoginRequest request) RedirectResponse
+        +logout(Request request) RedirectResponse
+    }
+
+    class AuthService {
+        +login(string email, string password) string
+        +logout(User user) void
+    }
+
+    class User {
+        +int id
+        +string name
+        +string email
+        +string role
+        +createToken(string name) NewAccessToken
+    }
+
+    EmpadronamientoController --> EmpadronamientoServiceInterface : inyecta e invoca (DIP)
     EmpadronamientoService ..|> EmpadronamientoServiceInterface : implementa
-    EmpadronamientoService --> Damnificado : persiste / consulta
-    EmpadronamientoService --> RegistrarDamnificadoJob : dispatch (encola)
-    RegistrarDamnificadoJob --> EmpadronamientoService : handle()
+    EmpadronamientoService --> RegistrarDamnificadoJob : dispatch(array datos)
+    RegistrarDamnificadoJob --> Damnificado : persiste con upsertPadron()
     Damnificado --> Zona : pertenece a (zona_id)
     AuthController --> AuthService : invoca
-    AuthService --> User : valida y emite token Sanctum
+    AuthService --> User : autentica y emite token Sanctum
