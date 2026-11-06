@@ -2,7 +2,7 @@
 
 ## 1. Justificación del Enfoque Arquitectónico
 
-Mientras que el **Patrón/Estilo Arquitectónico** define la estructura estática del sistema, el **Enfoque Arquitectónico** establece la **estrategia de diseño y las tácticas técnicas** mediante las cuales la arquitectura satisface los **Drivers Arquitectónicos (`DA01`–`DA06`)**, los **Atributos de Calidad (`AC01`–`AC06`)** y las **Restricciones (`RC01`–`RC07`)**.
+Mientras que el **Patrón Arquitectónico** define la estructura estática del sistema, el **Enfoque Arquitectónico** establece la **estrategia de diseño y las tácticas técnicas** mediante las cuales la arquitectura satisface los **Drivers Arquitectónicos (`DA01`–`DA06`)**, los **Atributos de Calidad (`AC01`–`AC06`)** y las **Restricciones (`RC01`–`RC07`)**.
 
 Para el **Sistema Transaccional de Respuesta Rápida para el Empadronamiento**, el enfoque se fundamenta en tres pilares estratégicos dentro del ecosistema Laravel:
 

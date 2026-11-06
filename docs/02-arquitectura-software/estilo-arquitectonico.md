@@ -1,17 +1,17 @@
-# Patrón y Estilos Arquitectónicos
+# Patrón Arquitectónico
 
-## 1. Taxonomía de Estilos y Patrón Arquitectónico Aplicado
+## 1. Definición del Patrón Arquitectónico Aplicado
 
-En la ingeniería de sistemas transaccionales modernos, una arquitectura robusta combina de forma jerárquica **estilos arquitectónicos macro** (nivel de topología y particionamiento) con un **patrón arquitectónico de aplicación** (nivel de organización del código fuente).
+Para el **Sistema Transaccional de Respuesta Rápida para el Empadronamiento**, se ha seleccionado e implementado el patrón arquitectónico **Modelo-Vista-Controlador (MVC) en Capas con Servicios** dentro de un **Monolito Modular**, operando bajo un modelo **Cliente-Servidor** y **procesamiento asíncrono basado en colas**.
 
-Para el **Sistema Transaccional de Respuesta Rápida para el Empadronamiento**, la arquitectura se define mediante la convergencia de cuatro niveles estructurales:
+El patrón arquitectónico del sistema se articula en cuatro dimensiones complementarias:
 
-| Nivel Arquitectónico | Estilo / Patrón Seleccionado | Decisión / Driver | Rol Estructural en el Sistema |
+| Nivel Arquitectónico | Patrón Seleccionado | Decisión / Driver | Rol Estructural en el Sistema |
 | :--- | :--- | :--- | :--- |
-| **1. Estilo de Red (Distribución)** | **Cliente-Servidor (*Client-Server*)** | `DA02`, `RC01` | Separa el cliente web ligero (navegador móvil/escritorio con HTML5, Bootstrap 5 y respaldo `localStorage`) del clúster de servidores Laravel presidido por **Nginx**. |
-| **2. Estilo de Despliegue y Particionamiento** | **Monolito Modular (*Modular Monolith*)** | `ADR-001`, `DA04` | Empaqueta toda la base de código en una unidad cohesiva particionada en **4 módulos funcionales** (`Auth`, `Captura/Empadronamiento`, `Padrón` y `Reportes`), desplegada en contenedores especializados (`App Web` + `Workers`). |
+| **1. Patrón de Red (Distribución)** | **Cliente-Servidor (*Client-Server*)** | `DA02`, `RC01` | Separa el cliente web ligero (navegador móvil/escritorio con HTML5, Bootstrap 5 y respaldo `localStorage`) del clúster de servidores Laravel presidido por **Nginx**. |
+| **2. Patrón de Despliegue y Particionamiento** | **Monolito Modular (*Modular Monolith*)** | `ADR-001`, `DA04` | Empaqueta toda la base de código en una unidad cohesiva particionada en **4 módulos funcionales** (`Auth`, `Captura/Empadronamiento`, `Padrón` y `Reportes`), desplegada en contenedores especializados (`App Web` + `Workers`). |
 | **3. Patrón Arquitectónico Interno (Código)** | **Modelo-Vista-Controlador (MVC) en Capas con Servicios** | `ADR-002`, `DA06` | Divide cada módulo en **Controlador** (`routes/`, `app/Http/`), **Vista** (`resources/views/`) y **Modelo** subdividido en **Lógica de Negocio** (`app/Services/`), **Cola Asíncrona** (`app/Jobs/`) y **Persistencia** (`app/Models/`, `database/`). |
-| **4. Estilo de Concurrencia e Integración** | **Productor-Consumidor Basado en Colas (*Queue-Centric*)** | `ADR-003`, `DA01` | Desacopla la recepción HTTP masiva (productor `EmpadronamientoService`) de la inserción relacional en MySQL (consumidor `RegistrarDamnificadoJob` en procesos `queue:work`) a través de **Redis 7 (AOF)**. |
+| **4. Patrón de Concurrencia e Integración** | **Productor-Consumidor Basado en Colas (*Queue-Centric*)** | `ADR-003`, `DA01` | Desacopla la recepción HTTP masiva (productor `EmpadronamientoService`) de la inserción relacional en MySQL (consumidor `RegistrarDamnificadoJob` en procesos `queue:work`) a través de **Redis 7 (AOF)**. |
 
 ---
 
