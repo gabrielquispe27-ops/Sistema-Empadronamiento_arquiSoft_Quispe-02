@@ -1,51 +1,85 @@
-flowchart LR
-    classDef pres fill:#e8f4f8,stroke:#007acc,stroke-width:1px,color:#333
-    classDef ctrl fill:#e8f8e8,stroke:#2ca02c,stroke-width:1px,color:#333
-    classDef biz fill:#fff8e6,stroke:#e6a800,stroke-width:1px,color:#333
-    classDef data fill:#f4e8f8,stroke:#9467bd,stroke-width:1px,color:#333
-    classDef queue fill:#fde8e8,stroke:#d9534f,stroke-width:1px,color:#333
-    classDef ext fill:#f9f9f9,stroke:#666,stroke-width:1px,color:#333
+flowchart TD
+    %% ESTILOS VISUALES DEL PROYECTO
+    classDef actor fill:#f9f9f9,stroke:#333,stroke-width:1.5px,color:#111;
+    classDef ctrl fill:#e6ffe6,stroke:#2ca02c,stroke-width:1.5px,color:#111;
+    classDef mw fill:#f2e6ff,stroke:#9966cc,stroke-width:1.5px,color:#111;
+    classDef view fill:#e8f4f8,stroke:#007acc,stroke-width:1.5px,color:#111;
+    classDef contract fill:#fff9e6,stroke:#d4a017,stroke-width:1.5px,stroke-dasharray: 5 5,color:#111;
+    classDef biz fill:#fff2e6,stroke:#ff9933,stroke-width:1.5px,color:#111;
+    classDef job fill:#fce4ec,stroke:#c2185b,stroke-width:1.5px,color:#111;
+    classDef data fill:#e8eaf6,stroke:#3f51b5,stroke-width:1.5px,color:#111;
+    classDef queue fill:#fde8e8,stroke:#d9534f,stroke-width:1.5px,color:#111;
+    classDef db fill:#e8f8e8,stroke:#2d882d,stroke-width:1.5px,color:#111;
 
-    Usuario["Actor\n(Brigadista / Coordinador)"]:::ext
+    Brigadista["«actor»\nBrigadista en Campo\n(Dispositivo Móvil)"]:::actor
 
-    subgraph APP ["«aplicación» Laravel Empadronamiento [PHP 8 / Laravel]"]
-        subgraph CTRL ["1. CONTROL\nroutes/ + app/Http/"]
-            direction TB
-            MW["«middleware»\nAuthenticate (Sanctum)\nauth:sanctum"]:::ctrl
-            C1["«controller»\nEmpadronamientoController\n(create, store)"]:::ctrl
+    subgraph APP ["«módulo captura / empadronamiento» Monolito Laravel [PHP 8.x — Patrón MVC en Capas con Servicios]"]
+        direction TB
+
+        %% ==========================================
+        %% 1. CAPA DE CONTROL (COMPONENTE CONTROLADOR)
+        %% ==========================================
+        subgraph CTRL ["1. CAPA DE CONTROL (COMPONENTE CONTROLADOR — routes/ y app/Http/)"]
+            direction LR
+            R1["«rutas»\nroutes/web.php | routes/api.php\nGET /captura | POST /captura\nPOST /api/v1/empadronamiento"]:::mw
+            MW1["«middlewares»\nauth:sanctum\nEnsureRoleMiddleware (role:brigadista)"]:::mw
+            REQ1["«form request»\nStoreDamnificadoRequest\nValida DNI (8 dígitos), zona_id,\nnivel_dano y datos demográficos"]:::mw
+            C1["«controller»\nEmpadronamientoController\n+ create(): View\n+ store(StoreDamnificadoRequest): RedirectResponse"]:::ctrl
+
+            R1 --> MW1 --> REQ1 --> C1
         end
 
-        subgraph PRES ["2. PRESENTACIÓN\nresources/views/ (Blade + Bootstrap)"]
-            direction TB
-            V1["captura/create.blade.php\n(formulario mobile-first)"]:::pres
-            V2["dashboard/index.blade.php\n(gráficos y consolidados)"]:::pres
+        %% ==========================================
+        %% 2. CAPA DE PRESENTACIÓN (COMPONENTE VISTA)
+        %% ==========================================
+        subgraph PRES ["2. CAPA DE PRESENTACIÓN (COMPONENTE VISTA — resources/views/)"]
+            direction LR
+            V1["«vista blade»\ncaptura/create.blade.php\nFormulario Mobile-First (Bootstrap 5)\n+ Respaldo offline en localStorage"]:::view
+            VL["«layout maestro»\nlayouts/app.blade.php\nEstructura HTML5 + Alertas de estado"]:::view
+
+            V1 -. "extiende (@extends)" .-> VL
         end
 
-        subgraph BIZ ["3. NEGOCIO\napp/Services/ + app/Jobs/"]
-            direction TB
-            S1["«service»\nEmpadronamientoService\n(valida DNI, deduplica en Redis, encola DTO)"]:::biz
-            S2["«job / worker»\nRegistrarDamnificadoJob\n(consume DTO y ejecuta upsert)"]:::biz
+        %% ==========================================
+        %% 3. CAPA DE LÓGICA DE NEGOCIO (COMPONENTE MODELO - SERVICIOS Y COLA)
+        %% ==========================================
+        subgraph BIZ ["3. CAPA DE LÓGICA DE NEGOCIO (COMPONENTE MODELO — app/Services/ y app/Jobs/)"]
+            direction LR
+            I1["«interface (DIP)»\nEmpadronamientoServiceInterface\n+ registrar(array $datos): bool\n+ esDuplicado(string $dni): bool"]:::contract
+            S1["«service (productor)»\nEmpadronamientoService\n• validarFormatoDni()\n• Redis::set(dni, NX, EX 86400)\n• dispatch(RegistrarDamnificadoJob)"]:::biz
+            J1["«job / worker (consumidor)»\nRegistrarDamnificadoJob\n• Cola: 'empadronamiento'\n• handle(): ejecuta upsertPadron()\n• failed(): libera clave DNI en Redis"]:::job
+
+            S1 -. "implementa (AppServiceProvider)" .-> I1
         end
 
-        subgraph DATA ["4. DATOS\napp/Models/ + database/"]
-            direction TB
-            M1["«model»\nDamnificado\n(Eloquent)"]:::data
-            M2["«model»\nZona\n(Eloquent)"]:::data
-            MI["«migration»\nschema MySQL\n(clave única DNI)"]:::data
+        %% ==========================================
+        %% 4. CAPA DE DATOS (COMPONENTE MODELO - ELOQUENT Y MIGRACIONES)
+        %% ==========================================
+        subgraph DATA ["4. CAPA DE DATOS (COMPONENTE MODELO — app/Models/ y database/migrations/)"]
+            direction LR
+            M1["«model»\nDamnificado (Eloquent)\n+ upsertPadron(array $datos): void\n+ zona(): BelongsTo\n+ brigadista(): BelongsTo"]:::data
+            M2["«models relacionados»\nZona (zonas)\nUser (users — registrado_por)"]:::data
+            MI1["«migration»\n2026_10_01_000003_create_damnificados_table\nPK id | UNIQUE (dni)\nFK zona_id | FK registrado_por"]:::data
+
+            M1 -- "pertenece a" --> M2
+            M1 --> MI1
         end
+
+        %% RELACIONES ENTRE CAPAS MVC
+        C1 -. "1a. GET /captura: renderiza vista" .-> V1
+        C1 -. "4. POST /captura: redirección + confirmación (< 2 s)" .-> V1
+        C1 -- "1b. POST /captura: invoca abstracción (DIP)" --> I1
+        J1 -- "5. Persistencia idempotente: upsertPadron($datos)" --> M1
     end
 
-    Redis[("«contenedor broker»\nRedis 7\n(Colas + Caché DNI)")]:::queue
-    BD[("«contenedor BD»\nMySQL 8\n(padron_db)")]:::ext
+    %% INFRAESTRUCTURA DE SOPORTE
+    Redis[("«contenedor broker y caché»\nRedis 7 (AOF)\n• SETNX empadronamiento:dni:{dni}\n• Cola: queues:empadronamiento")]:::queue
+    BD[("«contenedor base de datos»\nMySQL 8 (padron_db)\nTabla: damnificados (UNIQUE dni)")]:::db
 
-    Usuario -- "HTTPS (GET/POST)" --> MW
-    MW --> C1
-    C1 -. "renderiza HTML" .-> V1
-    C1 -. "renderiza HTML" .-> V2
-    C1 -- "invoca (DIP)" --> S1
-    S1 -- "SETNX dni + dispatch(DTO)" --> Redis
-    Redis -- "BLPOP" --> S2
-    S2 -- "upsertPadron()" --> M1
-    M1 --> BD
-    M2 --> BD
-    MI -. "define esquema" .-> BD
+    %% CONEXIONES EXTERNAS
+    Brigadista -- "HTTPS (GET / POST)" --> R1
+    V1 -. "HTML5 + Confirmación" .-> Brigadista
+    S1 -- "2. SETNX dni + LPUSH job (TCP 6379 — < 5 ms)" --> Redis
+    Redis -- "3. BLPOP job asíncrono (queue:work)" --> J1
+    M1 -- "6. SQL INSERT ... ON DUPLICATE KEY UPDATE" --> BD
+    MI1 -. "define esquema físico" .-> BD
