@@ -2,130 +2,158 @@
 
 ## 1. Definición del Patrón Arquitectónico Global
 
-Para el **Sistema Transaccional de Respuesta Rápida para el Empadronamiento**, se ha seleccionado un patrón arquitectónico de **Monolito Modular organizado en Capas (MVC con Capa de Servicios)**, operando bajo un modelo **Cliente-Servidor** con renderizado en servidor y **procesamiento asíncrono desacoplado mediante Redis**.
+Para el **Sistema Transaccional de Respuesta Rápida para el Empadronamiento**, se ha seleccionado e implementado el patrón arquitectónico **Modelo-Vista-Controlador (MVC) con Capa de Servicios** dentro de un **Monolito Modular**, operando bajo un esquema **Cliente-Servidor** con renderizado en servidor (SSR) y **procesamiento asíncrono desacoplado mediante Redis**.
 
-* **Cliente-Servidor con Balanceo:** Separa el cliente web (vistas HTML5/Bootstrap con respaldo en `localStorage` para microcortes en campo) del clúster de contenedores de servidor presidido por **Nginx**.
-* **Monolito Modular:** Todas las funcionalidades residen en un mismo repositorio y base de código Laravel, particionado internamente en cuatro módulos de negocio cohesivos: **Autenticación (`Auth`)**, **Captura/Empadronamiento**, **Padrón** y **Reportes**.
-* **Arquitectura en Capas (MVC + Services + Queues):** Las responsabilidades se dividen estrictamente en **Control** (Rutas, Middlewares, Controllers), **Presentación** (Vistas Blade renderizadas por los Controllers), **Lógica de Negocio** (Services y Jobs) y **Datos** (Models Eloquent + Migrations sobre MySQL), utilizando **Redis** como broker en memoria para absorber picos de 3,000 brigadistas concurrentes.
+* **Cliente-Servidor con Balanceo:** Separa el cliente web (vistas HTML5/Bootstrap 5 con respaldo en `localStorage` para microcortes en campo) del clúster de contenedores de servidor presidido por **Nginx**.
+* **Monolito Modular:** Todas las funcionalidades residen en un mismo repositorio y base de código Laravel, particionado internamente en cuatro módulos de negocio cohesivos: **1. Autenticación (`Auth`)**, **2. Captura/Empadronamiento**, **3. Padrón** y **4. Reportes**.
+* **Separación Estricta MVC (`ADR-002`, `ADR-003`):**
+  * **Componente Controlador (`routes/`, `app/Http/`):** Enrutamiento HTTP (`web.php`, `api.php`), middlewares transversales (`auth:sanctum`, `EnsureRoleMiddleware`), validación de entrada (`LoginRequest`, `StoreDamnificadoRequest`) y controladores delgados (`AuthController`, `EmpadronamientoController`, `PadronController`, `ReporteController`).
+  * **Componente Vista (`resources/views/`):** Plantilla maestra (`layouts/app.blade.php`) y vistas Blade por módulo (`auth/login.blade.php`, `captura/create.blade.php`, `dashboard/index.blade.php`, `reportes/index.blade.php`).
+  * **Componente Modelo (`app/Services/`, `app/Jobs/`, `app/Models/`, `database/migrations/`):** Subcapa de lógica de negocio e inversión de dependencias (`EmpadronamientoServiceInterface`, `AuthService`, `EmpadronamientoService`, `PadronService`, `ReporteService`), procesamiento asíncrono en cola (`RegistrarDamnificadoJob`) y persistencia Eloquent (`User`, `Damnificado`, `Zona`) sobre **MySQL 8** y **Redis 7**.
 
-## 2. Diagrama de la Arquitectura (Vista Estructural)
+## 2. Diagrama de la Arquitectura (Vista Estructural MVC)
 
 ```mermaid
 flowchart TD
-    %% ESTILOS
-    classDef actor fill:#f9f9f9,stroke:#333,stroke-width:1px;
-    classDef frontend fill:#fff,stroke:#333,stroke-width:1px;
-    classDef capa1 fill:#e6f2ff,stroke:#66a3ff,stroke-width:1px;
-    classDef capa2 fill:#e6ffe6,stroke:#66cc66,stroke-width:1px;
-    classDef capa3 fill:#fff2e6,stroke:#ff9933,stroke-width:1px;
-    classDef infra fill:#f2e6ff,stroke:#9966cc,stroke-width:1px;
-    classDef queue fill:#fde8e8,stroke:#d9534f,stroke-width:1px;
-    classDef db fill:#e8f8e8,stroke:#2d882d,stroke-width:1px;
+    %% ESTILOS VISUALES DEL PROYECTO
+    classDef actor fill:#f9f9f9,stroke:#333,stroke-width:1.5px,color:#111;
+    classDef frontend fill:#ffffff,stroke:#333,stroke-width:1.5px,color:#111;
+    classDef ctrl fill:#e6ffe6,stroke:#2ca02c,stroke-width:1.5px,color:#111;
+    classDef mw fill:#f2e6ff,stroke:#9966cc,stroke-width:1.5px,color:#111;
+    classDef view fill:#e6f2ff,stroke:#007acc,stroke-width:1.5px,color:#111;
+    classDef service fill:#fff2e6,stroke:#ff9933,stroke-width:1.5px,color:#111;
+    classDef contract fill:#fff9e6,stroke:#d4a017,stroke-width:1.5px,stroke-dasharray: 5 5,color:#111;
+    classDef job fill:#fce4ec,stroke:#c2185b,stroke-width:1.5px,color:#111;
+    classDef model fill:#e8eaf6,stroke:#3f51b5,stroke-width:1.5px,color:#111;
+    classDef queue fill:#fde8e8,stroke:#d9534f,stroke-width:1.5px,color:#111;
+    classDef db fill:#e8f8e8,stroke:#2d882d,stroke-width:1.5px,color:#111;
 
-    %% ACTORES Y FRONTEND
-    Brigadista["Brigadista"]:::actor
-    Coordinador["Coordinador de Defensa Civil"]:::actor
+    %% ACTORES Y CLIENTE WEB
+    Brigadista["«actor»\nBrigadista en Campo"]:::actor
+    Coordinador["«actor»\nCoordinador de Defensa Civil"]:::actor
 
-    subgraph FRONTEND ["Cliente Web (Navegador móvil / escritorio)"]
-        UI["HTML5 / CSS / JS (LocalStorage)\n[Bootstrap Mobile-First + Dashboard]"]:::frontend
+    subgraph FRONTEND ["Cliente Web (Navegador Móvil / Escritorio)"]
+        UI["HTML5 + Bootstrap 5 Mobile-First + JS (localStorage)\n[Formularios de Campo y Dashboard Analítico]"]:::frontend
     end
 
     Brigadista --> UI
     Coordinador --> UI
 
-    %% BACKEND MONOLITO
-    subgraph BACKEND ["«monolito modular» Laravel Empadronamiento [PHP 8.x - Laravel]"]
+    %% MONOLITO MODULAR LARAVEL BAJO PATRÓN MVC
+    subgraph BACKEND ["«monolito modular» Sistema de Empadronamiento [PHP 8.x / Laravel — Patrón MVC + Capa de Servicios]"]
         direction TB
 
-        MW["Rutas + Middlewares (transversales)\nauth:sanctum - FormRequest - manejo de errores"]:::infra
+        %% ==========================================
+        %% 1. COMPONENTE CONTROLADOR (C)
+        %% ==========================================
+        subgraph COMP_CONTROLADOR ["COMPONENTE CONTROLADOR (Capa de Control HTTP — routes/ y app/Http/)"]
+            direction TB
 
-        %% CAPA 1 - CONTROL
-        subgraph CONTROL ["1. CAPA DE CONTROL (Recibe peticiones HTTP, delega en Services y renderiza Vistas)"]
-            direction LR
-            C_Auth["AuthController\n(login, logout, token)"]:::capa2
-            C_Cap["EmpadronamientoController"]:::capa2
-            C_Pad["PadronController"]:::capa2
-            C_Rep["ReporteController"]:::capa2
+            MW["«enrutamiento + middlewares + form requests»\nroutes/web.php | routes/api.php\nauth:sanctum | EnsureRoleMiddleware (brigadista, coordinador)\nLoginRequest | StoreDamnificadoRequest"]:::mw
+
+            subgraph CONTROLLERS ["Controladores por Módulo (app/Http/Controllers/ — Sin lógica de negocio)"]
+                direction LR
+                C_Auth["«controller»\nMódulo Auth\nAuthController\nshowLoginForm() | login() | logout()"]:::ctrl
+                C_Cap["«controller»\nMódulo Captura\nEmpadronamientoController\ncreate() | store()"]:::ctrl
+                C_Pad["«controller»\nMódulo Padrón\nPadronController\nindex()"]:::ctrl
+                C_Rep["«controller»\nMódulo Reportes\nReporteController\nindex()"]:::ctrl
+            end
+
+            MW --> C_Auth
+            MW --> C_Cap
+            MW --> C_Pad
+            MW --> C_Rep
         end
 
-        %% CAPA 2 - PRESENTACIÓN
-        subgraph PRESENTACION ["2. CAPA DE PRESENTACIÓN (Vistas Blade renderizadas en servidor)"]
-            direction LR
-            V_Auth["módulo auth\n(auth/login.blade.php)"]:::capa1
-            V_Cap["módulo captura\n(captura/create.blade.php)"]:::capa1
-            V_Dash["módulo dashboard\n(dashboard/index.blade.php)"]:::capa1
-            V_Rep["módulo reportes\n(reportes/*.blade.php)"]:::capa1
+        %% ==========================================
+        %% 2. COMPONENTE VISTA (V)
+        %% ==========================================
+        subgraph COMP_VISTA ["COMPONENTE VISTA (Capa de Presentación SSR — resources/views/)"]
+            direction TB
+
+            V_Layout["«layout base»\nlayouts/app.blade.php\n(Plantilla maestra Bootstrap 5 + barra de navegación por rol)"]:::view
+
+            subgraph VISTAS_MODULOS ["Vistas Blade por Módulo (Renderizadas en Servidor)"]
+                direction LR
+                V_Auth["«vista»\nMódulo Auth\nauth/login.blade.php\n(Formulario de acceso)"]:::view
+                V_Cap["«vista»\nMódulo Captura\ncaptura/create.blade.php\n(Formulario Mobile-First + localStorage)"]:::view
+                V_Dash["«vista»\nMódulo Padrón\ndashboard/index.blade.php\n(Padrón paginado + filtro por zona)"]:::view
+                V_Rep["«vista»\nMódulo Reportes\nreportes/index.blade.php\n(KPIs y cobertura por zona)"]:::view
+            end
+
+            V_Auth -. "extiende (@extends)" .-> V_Layout
+            V_Cap -. "extiende (@extends)" .-> V_Layout
+            V_Dash -. "extiende (@extends)" .-> V_Layout
+            V_Rep -. "extiende (@extends)" .-> V_Layout
         end
 
-        %% CAPA 3 - NEGOCIO
-        subgraph NEGOCIO ["3. CAPA DE LÓGICA DE NEGOCIO (Reglas de dominio y coordinación)"]
-            direction LR
-            S_Auth["AuthService\n(valida credenciales, emite token Sanctum)"]:::capa3
-            S_Cap["EmpadronamientoService\n(valida DNI, deduplica en Redis y encola DTO)"]:::capa3
-            S_Pad["PadronService\n(consolidación del padrón)"]:::capa3
-            S_Rep["ReporteService\n(métricas por zona con caché)"]:::capa3
+        %% ==========================================
+        %% 3. COMPONENTE MODELO (M)
+        %% ==========================================
+        subgraph COMP_MODELO ["COMPONENTE MODELO (Lógica de Negocio, Procesamiento Asíncrono y Persistencia — app/Services/, app/Jobs/, app/Models/, database/)"]
+            direction TB
+
+            subgraph SUB_SERVICIOS ["3.1 Subcapa de Lógica de Negocio y Dominio (app/Services/)"]
+                direction LR
+                S_Auth["«service»\nMódulo Auth\nAuthService\nlogin() | logout()\n(Tokens Laravel Sanctum)"]:::service
+                I_Cap["«interface (DIP)»\nEmpadronamientoServiceInterface\nregistrar(array $datos): bool"]:::contract
+                S_Cap["«service»\nMódulo Captura\nEmpadronamientoService\nregistrar()\n(SETNX DNI + dispatch Job)"]:::service
+                S_Pad["«service»\nMódulo Padrón\nPadronService\nobtenerPadronConsolidado()\nlistarZonasActivas()"]:::service
+                S_Rep["«service»\nMódulo Reportes\nReporteService\nobtenerMetricasPorZona()\n(Cache::remember 60s)"]:::service
+            end
+
+            subgraph SUB_COLA ["3.2 Subcapa de Procesamiento Asíncrono (app/Jobs/ — Contenedor Worker queue:work)"]
+                direction LR
+                J_Cap["«job»\nMódulo Captura\nRegistrarDamnificadoJob\nhandle(): consume DTO de Redis\n(3 tries, backoff [5, 15, 30]s)"]:::job
+            end
+
+            subgraph SUB_DATOS ["3.3 Subcapa de Entidades Eloquent ORM y Esquema (app/Models/ y database/migrations/)"]
+                direction LR
+                M_User["«model»\nUser\n(Tabla: users)\nHasApiTokens | esBrigadista() | esCoordinador()"]:::model
+                M_Dam["«model»\nDamnificado\n(Tabla: damnificados — UNIQUE dni)\nupsertPadron() | zona() | brigadista()"]:::model
+                M_Zona["«model»\nZona\n(Tabla: zonas)\ndamnificados() (1:N) | poblacion_estimada"]:::model
+                MI["«migrations»\n2026_10_01_000001_create_users_table\n2026_10_01_000002_create_zonas_table\n2026_10_01_000003_create_damnificados_table"]:::model
+            end
         end
 
-        %% COLA
-        subgraph COLA ["PROCESAMIENTO ASÍNCRONO (Contenedor Worker - queue:work)"]
-            direction LR
-            J_Cap["RegistrarDamnificadoJob\n(consume DTO y ejecuta upsert)"]:::infra
-        end
+        %% RELACIONES ENTRE CONTROLADOR Y VISTA
+        UI -- "1. Petición HTTPS" --> MW
+        C_Auth -. "renderiza vista" .-> V_Auth
+        C_Cap -. "renderiza vista" .-> V_Cap
+        C_Pad -. "renderiza vista + datos" .-> V_Dash
+        C_Rep -. "renderiza vista + métricas" .-> V_Rep
 
-        %% CAPA 4 - DATOS
-        subgraph DATOS ["4. CAPA DE DATOS (Persistencia Relacional con Eloquent)"]
-            direction LR
-            M_User["User\n(Eloquent)"]:::capa1
-            M_Dam["Damnificado\n(Eloquent)"]:::capa1
-            M_Zona["Zona\n(Eloquent)"]:::capa1
-            MI["migrations\n(clave única DNI, claves foráneas)"]:::capa1
-        end
+        %% RELACIONES ENTRE CONTROLADOR Y MODELO (SERVICIOS)
+        C_Auth -- "delega login/logout" --> S_Auth
+        C_Cap -- "depende de abstracción (DIP)" --> I_Cap
+        S_Cap -. "implementa (AppServiceProvider)" .-> I_Cap
+        C_Pad -- "consulta padrón y zonas" --> S_Pad
+        C_Rep -- "solicita métricas" --> S_Rep
 
-        %% CONEXIONES INTERNAS
-        UI -- "HTTPS" --> MW
-        MW --> C_Auth
-        MW --> C_Cap
-        MW --> C_Pad
-        MW --> C_Rep
-
-        C_Auth -. "renderiza" .-> V_Auth
-        C_Cap -. "renderiza" .-> V_Cap
-        C_Pad -. "renderiza" .-> V_Dash
-        C_Rep -. "renderiza" .-> V_Rep
-
-        C_Auth --> S_Auth
-        C_Cap --> S_Cap
-        C_Pad --> S_Pad
-        C_Rep --> S_Rep
-
-        J_Cap --> M_Dam
-        S_Pad --> M_Dam
-        S_Pad --> M_Zona
-        S_Rep --> M_Zona
-        S_Auth --> M_User
+        %% RELACIONES INTERNAS DEL COMPONENTE MODELO
+        S_Auth -- "autentica y emite token" --> M_User
+        J_Cap -- "ejecuta upsertPadron()" --> M_Dam
+        S_Pad -- "paginate() + with('zona')" --> M_Dam
+        S_Pad -- "withCount('damnificados')" --> M_Zona
+        S_Rep -- "withCount('damnificados')" --> M_Zona
+        M_Dam -- "pertenece a (zona_id)" --> M_Zona
+        M_User --> MI
         M_Dam --> MI
+        M_Zona --> MI
     end
 
-    %% INFRAESTRUCTURA DE DATOS Y COLAS
-    REDIS[("Redis 7 (AOF)\n(Colas + Deduplicación DNI + Caché)")]:::queue
-    DB[("MySQL 8\n(padron_db)")]:::db
+    %% INFRAESTRUCTURA DE DATOS Y COLAS EXTERNA AL PROCESO WEB
+    REDIS[("«broker y caché en memoria»\nRedis 7 (AOF)\n• Cola: empadronamiento\n• Deduplicación: SETNX empadronamiento:dni:{dni}\n• Caché: reportes:metricas_por_zona")]:::queue
+    DB[("«base de datos relacional»\nMySQL 8 (padron_db)\n• users\n• zonas\n• damnificados (UNIQUE dni)")]:::db
 
     %% CONEXIONES CON REDIS Y MYSQL
-    S_Cap -- "SETNX dni + dispatch(DTO)\n(TCP 6379)" --> REDIS
-    REDIS -- "BLPOP job\n(TCP 6379)" --> J_Cap
+    S_Cap -- "SETNX dni + dispatch(Job)\n(TCP 6379 — < 5 ms)" --> REDIS
+    REDIS -- "BLPOP job asíncrono\n(TCP 6379)" --> J_Cap
     S_Rep -- "Cache::remember()\n(TCP 6379)" --> REDIS
 
-    M_Dam -- "SQL - TCP 3306" --> DB
-    M_Zona -- "SQL - TCP 3306" --> DB
-    M_User -- "SQL - TCP 3306" --> DB
-
-    %% REGLAS
-    subgraph LEYENDA ["Reglas de la arquitectura"]
-        R1["1. Las peticiones HTTP entran por Rutas/Middlewares hacia los Controllers; estos invocan Services y renderizan Vistas Blade.
-2. En la ruta crítica de captura (POST /captura), EmpadronamientoService valida y encola en Redis sin bloquear MySQL.
-3. RegistrarDamnificadoJob es procesado por los Workers y persiste de forma unidireccional en MySQL vía Eloquent (upsert).
-4. Toda la lógica de negocio vive en Services, jamás en Controllers ni en Vistas Blade."]
-    end
+    M_User -- "SQL (TCP 3306)" --> DB
+    M_Dam -- "SQL UPSERT / SELECT (TCP 3306)" --> DB
+    M_Zona -- "SQL SELECT (TCP 3306)" --> DB
 ```
 
 ## 3. Topología de Despliegue en Contenedores

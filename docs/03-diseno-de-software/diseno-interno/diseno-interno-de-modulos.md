@@ -1,55 +1,62 @@
-# Diseño Interno de Módulos
+# Diseño Interno de Módulos (Patrón MVC)
 
-Detalle interno de los módulos del sistema: qué componentes contiene cada uno y cómo se reparten las responsabilidades entre controllers, services, jobs y models.
+Detalle interno de los **cuatro módulos del sistema** bajo el patrón arquitectónico **Modelo-Vista-Controlador (MVC) con Capa de Servicios**, especificando cómo se separan y comunican los componentes **Controlador**, **Modelo** (Servicios, Jobs y Modelos Eloquent) y **Vista** en cada módulo.
 
-## 1. Módulo Autenticación
+## 1. Módulo Autenticación (`Auth`)
 
-| Elemento | Archivo | Responsabilidad |
-|---|---|---|
-| Controller | `app/Http/Controllers/AuthController.php` | Login/logout y emisión del token de acceso. |
-| Service | `app/Services/AuthService.php` | Valida credenciales y crea/revoca tokens de Laravel Sanctum. |
-| Model | `app/Models/User.php` | Usuario del sistema (brigadista o coordinador) con su rol. |
-| Vistas | `resources/views/auth/login.blade.php` | Formulario de acceso. |
+| Componente MVC | Elemento | Archivo | Responsabilidad |
+| :--- | :--- | :--- | :--- |
+| **Controlador** | Controller | `app/Http/Controllers/AuthController.php` | Orquesta `showLoginForm()`, `login()` y `logout()`. |
+| **Controlador** | FormRequest | `app/Http/Requests/LoginRequest.php` | Valida el formato de `email` y `password`. |
+| **Modelo (Negocio)** | Service | `app/Services/AuthService.php` | Valida credenciales y emite/revoca tokens de Laravel Sanctum (`ADR-004`). |
+| **Modelo (Datos)** | Model Eloquent | `app/Models/User.php` | Entidad de usuario (`users`) con roles (`brigadista`, `coordinador`) y `HasApiTokens`. |
+| **Vista** | Plantilla Blade | `resources/views/auth/login.blade.php` | Formulario de inicio de sesión (extiende `layouts/app.blade.php`). |
 
 ## 2. Módulo Captura / Empadronamiento
 
-| Elemento | Archivo | Responsabilidad |
-|---|---|---|
-| Controller | `app/Http/Controllers/EmpadronamientoController.php` | Muestra el formulario y recibe el registro. |
-| Service | `app/Services/EmpadronamientoService.php` | Valida datos demográficos, detecta duplicados por DNI y encola el registro. |
-| Job | `app/Jobs/RegistrarDamnificadoJob.php` | Unidad encolable que persiste el registro (procesada por el worker). |
-| Model | `app/Models/Damnificado.php` | Entidad del padrón con sus relaciones (zona, daños reportados). |
-| Vistas | `resources/views/captura/create.blade.php` | Formulario mobile-first con Bootstrap. |
+| Componente MVC | Elemento | Archivo | Responsabilidad |
+| :--- | :--- | :--- | :--- |
+| **Controlador** | Controller | `app/Http/Controllers/EmpadronamientoController.php` | Muestra el formulario (`create()`) y recibe el envío de campo (`store()`). |
+| **Controlador** | FormRequest | `app/Http/Requests/StoreDamnificadoRequest.php` | Valida DNI de 8 dígitos, datos demográficos, `zona_id` y `nivel_dano`. |
+| **Modelo (Contrato DIP)** | Interface | `app/Services/Contracts/EmpadronamientoServiceInterface.php` | Contrato que desacopla al controlador de la implementación concreta (`ADR-002`). |
+| **Modelo (Negocio)** | Service | `app/Services/EmpadronamientoService.php` | Deduplica atómicamente el DNI en Redis (`SETNX`) y despacha el DTO a la cola. |
+| **Modelo (Cola)** | Job | `app/Jobs/RegistrarDamnificadoJob.php` | Unidad asíncrona procesada por el Worker (`queue:work`) con reintentos y backoff. |
+| **Modelo (Datos)** | Model Eloquent | `app/Models/Damnificado.php` | Entidad del padrón (`damnificados`) con método idempotente `upsertPadron()`. |
+| **Vista** | Plantilla Blade | `resources/views/captura/create.blade.php` | Formulario *Mobile-First* con Bootstrap 5 y respaldo en `localStorage` (`AC02`, `AC04`). |
 
-## 3. Módulo Padrón
+## 3. Módulo Padrón (Dashboard de Consolidación)
 
-| Elemento | Archivo | Responsabilidad |
-|---|---|---|
-| Controller | `app/Http/Controllers/PadronController.php` | Expone el padrón consolidado al dashboard. |
-| Service | `app/Services/PadronService.php` | Consolida registros y consulta el padrón por zonas. |
-| Model | `app/Models/Zona.php` | Zona afectada con su cobertura. |
+| Componente MVC | Elemento | Archivo | Responsabilidad |
+| :--- | :--- | :--- | :--- |
+| **Controlador** | Controller | `app/Http/Controllers/PadronController.php` | Recibe el filtro opcional `zona_id`, consulta al servicio y renderiza el dashboard (`index()`). |
+| **Controlador** | Middleware | `app/Http/Middleware/EnsureRoleMiddleware.php` | Restringe el acceso exclusivamente al rol `coordinador`. |
+| **Modelo (Negocio)** | Service | `app/Services/PadronService.php` | Ejecuta la consulta paginada del padrón consolidado y lista las zonas con conteo de afectados. |
+| **Modelo (Datos)** | Models Eloquent | `app/Models/Damnificado.php`, `app/Models/Zona.php` | Entidades `Damnificado` y `Zona` relacionadas (`1:N`) para consolidar el padrón único. |
+| **Vista** | Plantilla Blade | `resources/views/dashboard/index.blade.php` | Tabla paginada del padrón consolidado y selector de filtrado por zona de emergencia. |
 
-## 4. Módulo Reportes
+## 4. Módulo Reportes (Métricas y Cobertura)
 
-| Elemento | Archivo | Responsabilidad |
-|---|---|---|
-| Controller | `app/Http/Controllers/ReporteController.php` | Sirve los reportes estadísticos al coordinador. |
-| Service | `app/Services/ReporteService.php` | Calcula métricas (empadronados por zona, avance de cobertura). |
-| Vistas | `resources/views/reportes/*.blade.php` | Tablas y gráficos del dashboard. |
+| Componente MVC | Elemento | Archivo | Responsabilidad |
+| :--- | :--- | :--- | :--- |
+| **Controlador** | Controller | `app/Http/Controllers/ReporteController.php` | Solicita las métricas consolidadas al servicio y renderiza el reporte estadístico (`index()`). |
+| **Controlador** | Middleware | `app/Http/Middleware/EnsureRoleMiddleware.php` | Restringe el acceso exclusivamente al rol `coordinador`. |
+| **Modelo (Negocio)** | Service | `app/Services/ReporteService.php` | Calcula empadronados y porcentaje de cobertura por zona utilizando `Cache::remember` en Redis. |
+| **Modelo (Datos)** | Models Eloquent | `app/Models/Zona.php`, `app/Models/Damnificado.php` | Consulta agregada `Zona::withCount('damnificados')` sobre el esquema relacional. |
+| **Vista** | Plantilla Blade | `resources/views/reportes/index.blade.php` | Tarjetas KPI y tabla de progreso con barras de porcentaje de cobertura por zona. |
 
 ## 5. Esquema de datos base (MySQL)
 
-| Tabla | Clave | Relaciones |
-|---|---|---|
-| `users` | PK `id` | Posee tokens de Sanctum; rol brigadista/coordinador. |
-| `zonas` | PK `id` | Tiene muchos `damnificados`. |
-| `damnificados` | PK `id`, **UK `dni`** | Pertenece a una `zona`; almacena datos demográficos y daños reportados. |
+| Tabla | Migración | Clave | Relaciones |
+| :--- | :--- | :--- | :--- |
+| `users` | `2026_10_01_000001_create_users_table.php` | PK `id`, UK `email` | Posee tokens de Sanctum; registra `damnificados`. |
+| `zonas` | `2026_10_01_000002_create_zonas_table.php` | PK `id`, UK `codigo` | Tiene muchos `damnificados` (`1:N`). |
+| `damnificados` | `2026_10_01_000003_create_damnificados_table.php` | PK `id`, **UK `dni`** | Pertenece a una `zona` (`zona_id`) y a un brigadista (`registrado_por`). |
 
-> La clave única sobre `dni` es el soporte físico de la regla de negocio anti-duplicados (RF03), junto con la validación previa del service.
+> La clave única sobre `dni` es el soporte físico de la regla de negocio anti-duplicados (`RF03`), junto con la validación atómica previa en Redis (`SETNX`) dentro de `EmpadronamientoService`.
 
-## 6. Reglas de diseño interno
+## 6. Reglas de diseño interno MVC
 
-1. Un controller no puede consultar Eloquent directamente: siempre pasa por el service de su módulo.
-2. Un service no debe llamar a otro service de otro módulo exponiendo sus modelos: la coordinación entre módulos se resuelve en el controller o mediante jobs/eventos.
-3. Los jobs son delgados: contienen solo la orquestación del registro, delegando las reglas en el service.
-4. Las migraciones son la única fuente de verdad del esquema; los modelos solo lo reflejan.
+1. **Separación Controlador → Modelo:** Ningún controller puede consultar Eloquent directamente; siempre delega en el `Service` de su módulo.
+2. **Desacoplamiento entre Módulos:** Un `Service` no expone modelos internos a otros módulos; la coordinación se realiza en el controlador o mediante jobs/eventos.
+3. **Jobs Delgados:** `RegistrarDamnificadoJob` contiene únicamente la orquestación asíncrona y delega la persistencia idempotente en `Damnificado::upsertPadron()`.
+4. **Vistas Declarativas:** Las plantillas Blade en `resources/views/` solo reciben datos ya procesados por el controlador y nunca ejecutan lógica de dominio ni consultas SQL.
