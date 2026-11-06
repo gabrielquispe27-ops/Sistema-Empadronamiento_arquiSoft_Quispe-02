@@ -1,6 +1,6 @@
 # Nivel 3 - Diagrama de Componentes
 
-Vista interna del contenedor **App Web Laravel** y su relación con el contenedor **Workers de Cola**, **Redis** y **MySQL**, aplicando el estilo **MVC en Capas con Servicios** (`ADR-002`).
+Vista interna del contenedor **App Web Laravel** y su relación con el contenedor **Workers de Cola**, **Redis** y **MySQL**, aplicando el patrón arquitectónico **MVC en Capas con Servicios** (`ADR-002`).
 
 ```mermaid
 flowchart TD

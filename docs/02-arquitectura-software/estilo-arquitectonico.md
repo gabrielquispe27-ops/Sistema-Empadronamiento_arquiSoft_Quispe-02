@@ -1,8 +1,8 @@
-# Estilo Arquitectónico
+# Patrón Arquitectónico
 
-## 1. Definición del Estilo Global
+## 1. Definición del Patrón Arquitectónico Global
 
-Para el **Sistema Transaccional de Respuesta Rápida para el Empadronamiento**, se ha seleccionado un estilo arquitectónico de **Monolito Modular organizado en Capas (MVC con Capa de Servicios)**, operando bajo un modelo **Cliente-Servidor** con renderizado en servidor y **procesamiento asíncrono desacoplado mediante Redis**.
+Para el **Sistema Transaccional de Respuesta Rápida para el Empadronamiento**, se ha seleccionado un patrón arquitectónico de **Monolito Modular organizado en Capas (MVC con Capa de Servicios)**, operando bajo un modelo **Cliente-Servidor** con renderizado en servidor y **procesamiento asíncrono desacoplado mediante Redis**.
 
 * **Cliente-Servidor con Balanceo:** Separa el cliente web (vistas HTML5/Bootstrap con respaldo en `localStorage` para microcortes en campo) del clúster de contenedores de servidor presidido por **Nginx**.
 * **Monolito Modular:** Todas las funcionalidades residen en un mismo repositorio y base de código Laravel, particionado internamente en cuatro módulos de negocio cohesivos: **Autenticación (`Auth`)**, **Captura/Empadronamiento**, **Padrón** y **Reportes**.

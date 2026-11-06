@@ -25,14 +25,14 @@ En escenarios de desastre, los **Brigadistas** desplegados en campo deben captur
 
 ### Objetivos delRepositorio
 1. **Trazabilidad Arquitectónica:** Documentar de principio a fin cómo los actores, historias de usuario, requisitos funcionales (`RF`), atributos de calidad (`AC`) y restricciones (`RC`) dan origen a los **Drivers Arquitectónicos (`DA`)** y a las **Decisiones Arquitectónicas (`ADR`)**.
-2. **Especificación del Estilo Arquitectónico:** Definir la estructura de un **Monolito Modular organizado en Capas (MVC con Capa de Servicios)** con procesamiento asíncrono mediante colas de trabajo.
+2. **Especificación del Patrón Arquitectónico:** Definir la estructura de un **Monolito Modular organizado en Capas (MVC con Capa de Servicios)** con procesamiento asíncrono mediante colas de trabajo.
 3. **Modelado Estructural y Dinámico:** Proveer las vistas del **Modelo C4 (Niveles 1 al 4)**, diagramas de diseño interno y sus fuentes editables en **Mermaid (`.mmd`)** junto con sus imágenes exportadas (`.png`).
 
 ---
 
 ## 🛠️ Stack Tecnológico y Arquitectura
 
-El sistema adopta un estilo de **Monolito Modular en Capas (MVC + Services)** bajo un esquema **Cliente-Servidor**, optimizado para alta disponibilidad en recepción de registros y mantenibilidad del dominio.
+El sistema adopta un patrón arquitectónico de **Monolito Modular en Capas (MVC + Services)** bajo un esquema **Cliente-Servidor**, optimizado para alta disponibilidad en recepción de registros y mantenibilidad del dominio.
 
 | Capa / Ámbito | Tecnología | Rol en la Arquitectura |
 | :--- | :--- | :--- |
@@ -47,14 +47,62 @@ El sistema adopta un estilo de **Monolito Modular en Capas (MVC + Services)** ba
 
 ---
 
-## 📂 Organización de la Documentación Arquitectónica
+## 📂 Organización del Código (Patrón MVC) y Documentación Arquitectónica
 
-El repositorio está organizado en dos directorios principales (`docs/` e `img/`), acompañados de la configuración de agentes del proyecto (`AGENTS.md`):
+El proyecto implementa el patrón arquitectónico **Modelo-Vista-Controlador (MVC) con Capa de Servicios**, separando estrictamente las responsabilidades entre el **Modelo** (persistencia Eloquent, lógica de negocio en Services y procesamiento asíncrono en Jobs), la **Vista** (plantillas Blade + Bootstrap Mobile-First) y el **Controlador** (enrutamiento HTTP, middlewares Sanctum, FormRequests y Controllers delgados), junto con su documentación arquitectónica (`docs/` e `img/`):
 
 ```text
 Sistema-Empadronamiento_arquiSoft_Quispe-02/
 ├── AGENTS.md                                      # Definición del agente 'arquitecto-software'
 ├── README.md                                      # Documentación principal del repositorio
+├── app/                                           # Lógica del Backend (Controlador y Modelo)
+│   ├── Http/                                      # COMPONENTE CONTROLADOR (Capa de Control HTTP)
+│   │   ├── Controllers/                           # Controladores ligeros sin lógica de negocio
+│   │   │   ├── Controller.php
+│   │   │   ├── AuthController.php
+│   │   │   ├── EmpadronamientoController.php
+│   │   │   ├── PadronController.php
+│   │   │   └── ReporteController.php
+│   │   ├── Middleware/                            # Middlewares transversales (autorización por rol)
+│   │   │   └── EnsureRoleMiddleware.php
+│   │   └── Requests/                              # Validación de peticiones de entrada (FormRequests)
+│   │       ├── LoginRequest.php
+│   │       └── StoreDamnificadoRequest.php
+│   ├── Jobs/                                      # COMPONENTE MODELO (Procesamiento Asíncrono)
+│   │   └── RegistrarDamnificadoJob.php
+│   ├── Models/                                    # COMPONENTE MODELO (Entidades Eloquent ORM)
+│   │   ├── Damnificado.php
+│   │   ├── User.php
+│   │   └── Zona.php
+│   ├── Providers/                                 # Inyección de Dependencias (Principio DIP)
+│   │   └── AppServiceProvider.php
+│   └── Services/                                  # COMPONENTE MODELO (Reglas de Negocio y Dominio)
+│       ├── Contracts/
+│       │   └── EmpadronamientoServiceInterface.php
+│       ├── AuthService.php
+│       ├── EmpadronamientoService.php
+│       ├── PadronService.php
+│       └── ReporteService.php
+├── database/                                      # COMPONENTE MODELO (Esquema Relacional MySQL)
+│   └── migrations/
+│       ├── 2026_10_01_000001_create_users_table.php
+│       ├── 2026_10_01_000002_create_zonas_table.php
+│       └── 2026_10_01_000003_create_damnificados_table.php
+├── resources/                                     # COMPONENTE VISTA (Interfaz de Usuario SSR)
+│   └── views/                                     # Plantillas Blade + Bootstrap 5 Mobile-First
+│       ├── layouts/
+│       │   └── app.blade.php
+│       ├── auth/
+│       │   └── login.blade.php
+│       ├── captura/
+│       │   └── create.blade.php
+│       ├── dashboard/
+│       │   └── index.blade.php
+│       └── reportes/
+│           └── index.blade.php
+├── routes/                                        # COMPONENTE CONTROLADOR (Definición de Rutas)
+│   ├── api.php
+│   └── web.php
 ├── docs/                                          # Documentación arquitectónica por fases
 │   ├── 01-analisis-de-sistema/                    # Requisitos, atributos de calidad, drivers y ADRs
 │   │   ├── 01-actores.md
@@ -124,7 +172,7 @@ Todos los diagramas cuentan con su imagen exportada en `img/` y su código fuent
 | :--- | :--- | :--- |
 | **Arquitectura Inicial** | [arquitectura-inicial.png](img/arquitectura-inicial.png) | [arquitectura-inicial.mmd](img/fuentes-mermaid/arquitectura-inicial.mmd) |
 | **Enfoque Arquitectónico** | [enfoque-arquitectonico.png](img/enfoque-arquitectonico.png) | [enfoque-arquitectonico.mmd](img/fuentes-mermaid/enfoque-arquitectonico.mmd) |
-| **Estilo Arquitectónico** | [estilo-arquitectonico.png](img/estilo-arquitectonico.png) | [estilo-arquitectonico.mmd](img/fuentes-mermaid/estilo-arquitectonico.mmd) |
+| **Patrón Arquitectónico** | [estilo-arquitectonico.png](img/estilo-arquitectonico.png) | [estilo-arquitectonico.mmd](img/fuentes-mermaid/estilo-arquitectonico.mmd) |
 | **Componentes Arquitectónicos** | [componentes-arquitectonicos.png](img/componentes-arquitectonicos.png) | [componentes-arquitectonicos.mmd](img/fuentes-mermaid/componentes-arquitectonicos.mmd) |
 | **C4 - Nivel 1 (Contexto)** | [nivel1-contexto.png](img/nivel1-contexto.png) | [nivel1-contexto.mmd](img/fuentes-mermaid/nivel1-contexto.mmd) |
 | **C4 - Nivel 2 (Contenedores)** | [nivel2-contenedores.png](img/nivel2-contenedores.png) | [nivel2-contenedores.mmd](img/fuentes-mermaid/nivel2-contenedores.mmd) |
@@ -137,4 +185,4 @@ Todos los diagramas cuentan con su imagen exportada en `img/` y su código fuent
 
 ## 🤖 Asistente de Arquitectura (`AGENTS.md`)
 
-En la raíz del proyecto se incluye el archivo [AGENTS.md](AGENTS.md), que configura al agente especializado **`arquitecto-software`** con instrucciones de sistema como Arquitecto de Software Senior experto en el **Modelo C4**, **estilos arquitectónicos** y **diagramas Mermaid**, garantizando la coherencia evolutiva de esta documentación.
+En la raíz del proyecto se incluye el archivo [AGENTS.md](AGENTS.md), que configura al agente especializado **`arquitecto-software`** con instrucciones de sistema como Arquitecto de Software Senior experto en el **Modelo C4**, **patrones arquitectónicos** y **diagramas Mermaid**, garantizando la coherencia evolutiva de esta documentación.
