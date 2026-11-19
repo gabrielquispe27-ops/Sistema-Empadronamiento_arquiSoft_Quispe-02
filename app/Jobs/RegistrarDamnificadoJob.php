@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\Models\Damnificado;
+use App\Repositories\Contracts\DamnificadoRepositoryInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -18,7 +18,8 @@ use Throwable;
  *
  * Actúa como consumidor del patrón Productor-Consumidor (ADR-003, DA01) en los contenedores
  * Worker (queue:work). Recibe un DTO serializable (array) desde Redis y persiste de forma
- * unidireccional en MySQL mediante Damnificado::upsertPadron() sin depender del Service.
+ * idempotente mediante la abstracción DamnificadoRepositoryInterface inyectada por el
+ * contenedor IoC de Laravel (Principio DIP + Patrón Repository).
  */
 class RegistrarDamnificadoJob implements ShouldQueue
 {
@@ -46,11 +47,12 @@ class RegistrarDamnificadoJob implements ShouldQueue
     }
 
     /**
-     * Ejecuta la persistencia idempotente del registro en el padrón relacional.
+     * Ejecuta la persistencia idempotente del registro en el padrón relacional
+     * a través del repositorio inyectado por el contenedor de Laravel.
      */
-    public function handle(): void
+    public function handle(DamnificadoRepositoryInterface $damnificadoRepository): void
     {
-        Damnificado::upsertPadron($this->datosDamnificado);
+        $damnificadoRepository->upsertPadron($this->datosDamnificado);
     }
 
     /**

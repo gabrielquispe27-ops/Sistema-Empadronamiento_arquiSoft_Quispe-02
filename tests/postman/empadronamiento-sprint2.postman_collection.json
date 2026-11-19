@@ -1,0 +1,398 @@
+{
+  "info": {
+    "_postman_id": "b8c4e9f2-3d1a-4b7e-9c5f-2a1d8e6f4b3c",
+    "name": "Sistema Empadronamiento Emergencia - Sprint 2 (REST API + Sanctum + Redis SETNX)",
+    "description": "Colección automatizada de pruebas de integración REST para el Sistema Transaccional de Respuesta Rápida para el Empadronamiento en Zonas de Emergencia (Laravel 11). Incluye autenticación Sanctum con guardado automático de Bearer token, captura asíncrona (202 Accepted), deduplicación O(1) en Redis SETNX (409 Conflict), validación de DNI (422), consulta de padrón consolidado y reportes estadísticos por zona.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "dni_prueba",
+      "value": "71234567",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticación Sanctum (POST /api/auth/token)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Emite token Bearer de Laravel Sanctum y lo guarda en variable token', function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql('ok');",
+              "    pm.expect(jsonData.token_type).to.eql('Bearer');",
+              "    pm.expect(jsonData.token).to.be.a('string').and.not.empty;",
+              "    pm.collectionVariables.set('token', jsonData.token);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"coordinador@defensacivil.gob.pe\",\n  \"password\": \"Coordinador2026!\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/token",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "token"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Captura de Damnificado Exitosa (POST /api/captura -> 202 Accepted)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const randomDni = String(Math.floor(10000000 + Math.random() * 90000000));",
+              "pm.collectionVariables.set('dni_prueba', randomDni);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 202 Accepted (Encolado asíncrono)', function () {",
+              "    pm.response.to.have.status(202);",
+              "});",
+              "",
+              "pm.test('Tiempo de respuesta es menor a 2000 ms (AC01)', function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "pm.test('Payload confirma encolamiento en cola empadronamiento', function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql('queued');",
+              "    pm.expect(jsonData.queue).to.eql('empadronamiento');",
+              "    pm.expect(jsonData.dni).to.eql(pm.collectionVariables.get('dni_prueba'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"dni\": \"{{dni_prueba}}\",\n  \"nombres\": \"Carlos Alberto\",\n  \"apellidos\": \"Huamán Quispe\",\n  \"zona_id\": 1,\n  \"danos_materiales\": \"Colapso parcial de techo de adobe e inundación de vivienda.\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/captura",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "captura"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Captura con DNI Duplicado en Redis SETNX (POST /api/captura -> 409 Conflict)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 409 Conflict por deduplicación atómica O(1) en Redis SETNX (RF03, AC03)', function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test('Retorna código de error DUPLICATE_DNI', function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql('conflict');",
+              "    pm.expect(jsonData.error_code).to.eql('DUPLICATE_DNI');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"dni\": \"{{dni_prueba}}\",\n  \"nombres\": \"Carlos Alberto\",\n  \"apellidos\": \"Huamán Quispe\",\n  \"zona_id\": 1,\n  \"danos_materiales\": \"Intento duplicado con el mismo DNI desde otra brigada.\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/captura",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "captura"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Captura con DNI Inválido (POST /api/captura -> 422 Unprocessable Entity)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 422 Unprocessable Entity por formato de DNI inválido (RF02)', function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test('Respuesta detalla error de validación en el campo dni', function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('errors');",
+              "    pm.expect(jsonData.errors).to.have.property('dni');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"dni\": \"1234ABC\",\n  \"nombres\": \"Usuario\",\n  \"apellidos\": \"Invalido\",\n  \"zona_id\": 1,\n  \"danos_materiales\": \"Prueba de validación de DNI.\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/captura",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "captura"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5. Consulta del Padrón Único Consolidado (GET /api/padron -> 200 OK)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Retorna padrón paginado y catálogo de zonas activas (RF05)', function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql('ok');",
+              "    pm.expect(jsonData).to.have.property('padron');",
+              "    pm.expect(jsonData.padron).to.have.property('data');",
+              "    pm.expect(jsonData).to.have.property('zonas');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/padron?zona_id=1",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "padron"
+          ],
+          "query": [
+            {
+              "key": "zona_id",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6. Reportes Estadísticos y Cobertura por Zona (GET /api/reportes -> 200 OK)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Retorna métricas de empadronamiento y porcentaje de cobertura por zona (RF06)', function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('total_empadronados');",
+              "    pm.expect(jsonData).to.have.property('total_zonas');",
+              "    pm.expect(jsonData.zonas).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reportes",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reportes"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

@@ -5,25 +5,32 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Jobs\RegistrarDamnificadoJob;
+use App\Repositories\Contracts\DeduplicacionCacheInterface;
 use App\Services\Contracts\EmpadronamientoServiceInterface;
-use Illuminate\Support\Facades\Redis;
 use InvalidArgumentException;
 
 /**
  * Servicio de Empadronamiento EmpadronamientoService (Componente MODELO - Lógica de Negocio).
  *
- * Implementa las reglas de dominio de captura masiva (ADR-002, ADR-003):
+ * Implementa las reglas de dominio de captura masiva (ADR-002, ADR-003) aplicando
+ * Inversión de Dependencias (DIP):
  * 1. Validación estricta de formato de DNI (RF02).
- * 2. Deduplicación atómica en memoria O(1) con Redis SETNX (RF03, AC03).
+ * 2. Deduplicación atómica en memoria O(1) mediante DeduplicacionCacheInterface (RF03, AC03).
  * 3. Despacho asíncrono del DTO hacia Laravel Queues (RF04, AC01).
  */
 class EmpadronamientoService implements EmpadronamientoServiceInterface
 {
-    private const REDIS_DNI_PREFIX = 'dni:';
     private const REDIS_DNI_TTL_SECONDS = 86400;
 
+    private DeduplicacionCacheInterface $deduplicacionCache;
+
+    public function __construct(DeduplicacionCacheInterface $deduplicacionCache)
+    {
+        $this->deduplicacionCache = $deduplicacionCache;
+    }
+
     /**
-     * Valida las reglas de negocio del registro, verifica duplicados en Redis
+     * Valida las reglas de negocio del registro, verifica duplicados en memoria
      * y encola el DTO en RegistrarDamnificadoJob sin bloquear MySQL.
      *
      * @param  array<string, mixed>  $datos
@@ -55,22 +62,17 @@ class EmpadronamientoService implements EmpadronamientoServiceInterface
     }
 
     /**
-     * Primera barrera anti-duplicados en memoria: reserva atómicamente el DNI en Redis (SETNX).
-     * Devuelve true si el DNI ya estaba reservado/registrado previamente.
+     * Primera barrera anti-duplicados en memoria: delega en DeduplicacionCacheInterface
+     * la reserva atómica del DNI. Devuelve true si el DNI ya estaba registrado previamente.
      */
     public function esDuplicado(string $dni): bool
     {
-        $claveRedis = self::REDIS_DNI_PREFIX . $dni;
+        $reservado = $this->deduplicacionCache->reservarDniAtomicamente(
+            $dni,
+            self::REDIS_DNI_TTL_SECONDS
+        );
 
-        $reservado = (bool) Redis::setnx($claveRedis, '1');
-
-        if (! $reservado) {
-            return true;
-        }
-
-        Redis::expire($claveRedis, self::REDIS_DNI_TTL_SECONDS);
-
-        return false;
+        return ! $reservado;
     }
 
     /**

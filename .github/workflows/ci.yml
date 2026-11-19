@@ -1,0 +1,106 @@
+name: CI - Laravel 11 Empadronamiento (Tests, Swagger & Coverage)
+
+on:
+  push:
+    branches: [ main, master, develop, "feature/**", "sprint-**" ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  laravel-ci:
+    name: PHP 8.2 / MySQL 8 / Redis 7 / PHPUnit & L5-Swagger
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: padron_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar PHP 8.2 con PCOV para Cobertura
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, dom, filter, gd, curl, redis, bcmath
+          coverage: pcov
+          tools: composer:v2
+
+      - name: Validar estructura de composer.json
+        run: composer validate --no-check-lock
+
+      - name: Instalar dependencias de Composer
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Preparar archivo de entorno (.env) para MySQL 8 y Redis 7
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: padron_db
+          DB_USERNAME: root
+          DB_PASSWORD: root
+          REDIS_CLIENT: predis
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+
+      - name: Ejecutar y validar Migraciones y Seeders en MySQL 8 (padron_db)
+        run: php artisan migrate:fresh --seed --force
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: padron_db
+          DB_USERNAME: root
+          DB_PASSWORD: root
+
+      - name: Generar y validar especificación OpenAPI 3.0 (L5-Swagger)
+        run: |
+          php artisan l5-swagger:generate
+          test -f storage/api-docs/api-docs.json
+
+      - name: Ejecutar Pruebas Automatizadas (Unit + Feature) y Cobertura con PHPUnit
+        run: vendor/bin/phpunit --coverage-text --coverage-clover=storage/logs/clover.xml
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: padron_db
+          DB_USERNAME: root
+          DB_PASSWORD: root
+          REDIS_CLIENT: predis
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+
+      - name: Publicar artefactos de Cobertura y OpenAPI JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-quality-artifacts
+          path: |
+            storage/logs/clover.xml
+            storage/api-docs/api-docs.json

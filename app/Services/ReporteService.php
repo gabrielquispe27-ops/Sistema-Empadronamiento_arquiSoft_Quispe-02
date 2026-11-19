@@ -4,19 +4,29 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Zona;
-use Illuminate\Support\Facades\Cache;
+use App\Repositories\Contracts\ZonaRepositoryInterface;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 
 /**
  * Servicio de Reportes ReporteService (Componente MODELO - Lógica de Negocio).
  *
  * Calcula métricas estadísticas de personas empadronadas y porcentaje de cobertura
- * por zona afectada, apoyándose en caché sobre Redis para optimizar tiempos de respuesta (RF06, HU04).
+ * por zona afectada, inyectando ZonaRepositoryInterface y CacheRepository para cumplir
+ * el Principio de Inversión de Dependencias (RF06, HU04).
  */
 class ReporteService
 {
     private const CACHE_KEY_METRICAS_ZONA = 'reportes:metricas_por_zona';
     private const CACHE_TTL_SECONDS = 60;
+
+    private ZonaRepositoryInterface $zonaRepository;
+    private CacheRepository $cache;
+
+    public function __construct(ZonaRepositoryInterface $zonaRepository, CacheRepository $cache)
+    {
+        $this->zonaRepository = $zonaRepository;
+        $this->cache = $cache;
+    }
 
     /**
      * Genera el resumen estadístico de empadronamiento y cobertura por cada zona afectada.
@@ -25,11 +35,8 @@ class ReporteService
      */
     public function obtenerMetricasPorZona(): array
     {
-        return Cache::remember(self::CACHE_KEY_METRICAS_ZONA, self::CACHE_TTL_SECONDS, function (): array {
-            $zonas = Zona::query()
-                ->withCount('damnificados')
-                ->orderBy('nombre')
-                ->get();
+        return $this->cache->remember(self::CACHE_KEY_METRICAS_ZONA, self::CACHE_TTL_SECONDS, function (): array {
+            $zonas = $this->zonaRepository->listarConConteoDamnificados();
 
             $totalEmpadronados = 0;
             $detalleZonas = [];
