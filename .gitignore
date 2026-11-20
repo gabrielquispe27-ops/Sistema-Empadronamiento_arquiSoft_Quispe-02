@@ -1,0 +1,7 @@
+rr
+.rr.yaml
+
+# RoadRunner y logs temporales de k6
+/rr
+.rr.yaml.bak
+k6-resultado-*.txt

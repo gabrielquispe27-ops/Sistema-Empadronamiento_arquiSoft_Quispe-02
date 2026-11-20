@@ -143,5 +143,5 @@ export default function (data) {
 
     errorRateReal.add(!respuestaValida);
 
-    sleep(0.3);
+    sleep(6);
 }
