@@ -28,7 +28,7 @@ class StoreDamnificadoRequest extends FormRequest
             'dni' => ['required', 'string', 'digits:8', 'regex:/^\d{8}$/'],
             'nombres' => ['required', 'string', 'max:120'],
             'apellidos' => ['required', 'string', 'max:120'],
-            'zona_id' => ['required', 'integer', 'min:1'],
+            'zona_id' => ['required', 'integer', 'min:1', 'exists:zonas,id'],
             'danos_materiales' => ['required', 'string', 'max:1000'],
         ];
     }
