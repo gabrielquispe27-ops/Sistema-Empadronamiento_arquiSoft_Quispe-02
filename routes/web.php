@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DniLookupController;
 use App\Http\Controllers\EmpadronamientoController;
 use App\Http\Controllers\PadronController;
 use App\Http\Controllers\ReporteController;
@@ -28,6 +29,7 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
     // Módulo 2: Captura / Empadronamiento en Campo (Brigadista y Coordinador)
     Route::get('/captura', [EmpadronamientoController::class, 'create'])->name('captura.create');
     Route::post('/captura', [EmpadronamientoController::class, 'store'])->name('captura.store');
+    Route::get('/captura/consultar-dni/{dni}', DniLookupController::class)->name('captura.dni');
 
     // Módulo 3: Padrón Consolidado (Coordinador de Defensa Civil - RF05)
     Route::get('/dashboard', [PadronController::class, 'index'])

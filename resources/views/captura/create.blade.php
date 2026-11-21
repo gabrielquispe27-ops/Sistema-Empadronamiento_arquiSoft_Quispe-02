@@ -153,6 +153,65 @@
         form.addEventListener('submit', function () {
             localStorage.removeItem(STORAGE_KEY);
         });
+
+        // Autocompletado de Nombres y Apellidos al ingresar un DNI de 8 dígitos
+        const dniInput = document.getElementById('dni');
+        const nombresInput = document.getElementById('nombres');
+        const apellidosInput = document.getElementById('apellidos');
+
+        if (dniInput && nombresInput && apellidosInput) {
+            const placeholderNombresOriginal = nombresInput.getAttribute('placeholder') || '';
+            const placeholderApellidosOriginal = apellidosInput.getAttribute('placeholder') || '';
+            let ultimoDniConsultado = '';
+
+            dniInput.addEventListener('input', function () {
+                const dni = dniInput.value.trim();
+
+                if (!/^\d{8}$/.test(dni)) {
+                    ultimoDniConsultado = '';
+                    return;
+                }
+
+                if (dni === ultimoDniConsultado) {
+                    return;
+                }
+
+                ultimoDniConsultado = dni;
+                nombresInput.setAttribute('placeholder', 'Consultando RENIEC...');
+                apellidosInput.setAttribute('placeholder', 'Consultando RENIEC...');
+
+                fetch('/captura/consultar-dni/' + encodeURIComponent(dni), {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                })
+                    .then(function (response) {
+                        return response.json();
+                    })
+                    .then(function (data) {
+                        if (data && data.ok) {
+                            if (data.nombres) {
+                                nombresInput.value = data.nombres;
+                                nombresInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
+                            if (data.apellidos) {
+                                apellidosInput.value = data.apellidos;
+                                apellidosInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
+                        }
+                    })
+                    .catch(function () {
+                        // Falla silenciosa o sin red: permite escritura manual sin bloquear el formulario
+                    })
+                    .finally(function () {
+                        nombresInput.setAttribute('placeholder', placeholderNombresOriginal);
+                        apellidosInput.setAttribute('placeholder', placeholderApellidosOriginal);
+                    });
+            });
+        }
     })();
 </script>
 @endpush
