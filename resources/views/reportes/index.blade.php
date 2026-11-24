@@ -10,6 +10,13 @@
     $poblacionTotal = (int) $zonasMetricas->sum('poblacion_estimada');
     $coberturaGlobal = $poblacionTotal > 0 ? round($totalEmpadronados / $poblacionTotal * 100, 1) : 0;
     $zonasCriticas = $zonasMetricas->filter(fn ($z) => in_array(strtolower((string) ($z['nivel_afectacion'] ?? '')), ['critico', 'alto'], true))->count();
+    // Mismos datos que ya llegan a la vista, solo reformateados para Chart.js
+    $chartCobertura = $zonasMetricas->map(fn ($z) => [
+        'nombre' => (string) ($z['nombre'] ?? ''),
+        'empadronados' => (int) ($z['empadronados'] ?? 0),
+        'poblacion' => (int) ($z['poblacion_estimada'] ?? 0),
+        'pct' => (float) ($z['porcentaje_cobertura'] ?? 0),
+    ])->values();
 @endphp
 
 <div class="mb-4">
@@ -47,13 +54,39 @@
     </div>
 </div>
 
+<!-- Gráfico de avance de cobertura por zona (Chart.js) -->
+<div class="card mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h2 class="h6 fw-bold mb-0"><i class="bi bi-bar-chart-fill me-2 text-secondary"></i>Avance de cobertura por zona (%)</h2>
+        <div class="d-flex flex-wrap gap-3 small text-muted">
+            <span><i class="bi bi-square-fill me-1" style="color: #1f9254;"></i>≥ 75%</span>
+            <span><i class="bi bi-square-fill me-1" style="color: #f0a30a;"></i>40 – 74%</span>
+            <span><i class="bi bi-square-fill me-1" style="color: #c93a3a;"></i>&lt; 40%</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="chartCoberturaWrap" style="position: relative; height: 320px;">
+            <canvas id="chartCobertura" role="img" aria-label="Porcentaje de cobertura por zona"></canvas>
+        </div>
+        <div id="chartCoberturaVacio" class="text-center text-muted py-5" hidden>
+            <i class="bi bi-bar-chart fs-2 d-block mb-2"></i>Aún no hay métricas por zona para graficar.
+        </div>
+    </div>
+</div>
+
 <!-- Detalle de cobertura por zona afectada -->
 <div class="card">
-    <div class="card-header py-3">
+    <div class="card-header py-3 d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
         <h2 class="h6 fw-bold mb-0"><i class="bi bi-bar-chart-line me-2 text-secondary"></i>Cobertura de Empadronamiento por Zona Geográfica</h2>
+        <!-- Buscador rápido en tiempo real (zona o nivel) -->
+        @include('partials.buscador-tabla', [
+            'tabla' => 'tablaReporteZonas',
+            'cols' => [0, 1],
+            'placeholder' => 'Filtrar por zona o nivel de afectación...',
+        ])
     </div>
     <div class="table-responsive">
-        <table class="table table-dc table-hover align-middle mb-0">
+        <table id="tablaReporteZonas" class="table table-dc table-hover align-middle mb-0">
             <thead>
                 <tr>
                     <th>Zona Afectada</th>
@@ -105,3 +138,78 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+    (function () {
+        const canvas = document.getElementById('chartCobertura');
+        const vacio = document.getElementById('chartCoberturaVacio');
+        const wrap = document.getElementById('chartCoberturaWrap');
+        if (!canvas) return;
+
+        const datos = @json($chartCobertura);
+
+        if (typeof Chart === 'undefined' || !datos.length) {
+            if (wrap) wrap.hidden = true;
+            if (vacio) vacio.hidden = false;
+            return;
+        }
+
+        Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
+        Chart.defaults.color = '#6b778c';
+
+        // Mismos umbrales que las barras de progreso de la tabla
+        const colores = datos.map(function (z) {
+            return z.pct >= 75 ? '#1f9254' : (z.pct >= 40 ? '#f0a30a' : '#c93a3a');
+        });
+        const horizontal = window.innerWidth < 768;
+
+        new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: datos.map(function (z) { return z.nombre; }),
+                datasets: [{
+                    label: 'Cobertura (%)',
+                    data: datos.map(function (z) { return z.pct; }),
+                    backgroundColor: colores,
+                    borderRadius: 8,
+                    maxBarThickness: 44
+                }]
+            },
+            options: {
+                indexAxis: horizontal ? 'y' : 'x',
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 800, easing: 'easeOutQuart' },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0f172a',
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function (ctx) {
+                                const z = datos[ctx.dataIndex];
+                                return [
+                                    ' Cobertura: ' + z.pct + '%',
+                                    ' Empadronados: ' + z.empadronados.toLocaleString('es-PE'),
+                                    ' Población estimada: ' + z.poblacion.toLocaleString('es-PE')
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: horizontal
+                        ? { beginAtZero: true, max: 100, ticks: { callback: function (v) { return v + '%'; } }, grid: { color: '#eef1f6' } }
+                        : { grid: { display: false } },
+                    y: horizontal
+                        ? { grid: { display: false } }
+                        : { beginAtZero: true, max: 100, ticks: { callback: function (v) { return v + '%'; } }, grid: { color: '#eef1f6' } }
+                }
+            }
+        });
+    })();
+</script>
+@endpush
