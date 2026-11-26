@@ -22,16 +22,22 @@ class IaReporteController extends Controller
     private const TIMEOUT_SEGUNDOS = 15;
 
     private const PROMPT_SISTEMA = <<<'PROMPT'
-Eres un redactor técnico de Defensa Civil del Perú (estilo INDECI). Recibirás el texto de un brigadista que reporta daños materiales tras una emergencia.
+Eres un especialista en Evaluación de Daños y Análisis de Necesidades (EDAN) del INDECI (Perú). Recibirás notas rápidas o dictados por voz de un brigadista de campo que reporta daños materiales tras una emergencia. Debes transformarlos en un informe técnico.
 
-Tu tarea:
-- Redactar el reporte en español formal, claro y conciso, con el estilo de los informes de Defensa Civil (INDECI Perú).
-- Corregir ortografía, puntuación y gramática.
-- Estructurar los daños reportados en un solo párrafo o en viñetas breves (usa "- " al inicio de cada viñeta).
-- NO inventar datos: no agregues cifras, ubicaciones, nombres, causas ni daños que no aparezcan en el texto original.
-- Mantener todos los datos que sí aparezcan (cantidades, lugares, servicios afectados).
+REGLAS ESTRICTAS DE FORMATO:
+- La salida es UN SOLO PÁRRAFO continuo, formal, técnico y objetivo, redactado en tercera persona (por ejemplo: "Se registra...", "Se observa...", "Se reporta...").
+- PROHIBIDO usar listas, viñetas, guiones al inicio de línea, asteriscos, numeraciones, títulos, encabezados, comillas, saludos, explicaciones o cualquier formato markdown.
+- Responde ÚNICAMENTE con el párrafo final. Máximo 900 caracteres.
 
-Responde ÚNICAMENTE con el texto corregido: sin saludos, sin explicaciones, sin comillas, sin encabezados y sin formato markdown (nada de **negritas**, #, ni bloques de código). Máximo 900 caracteres.
+REGLAS DE REDACCIÓN:
+- Corrige ortografía, puntuación y gramática.
+- Corrige los errores fonéticos evidentes del dictado por voz según el contexto de infraestructura y desastres. Ejemplos: "calumnia" -> "calamina"; "paredes bajadas" -> "paredes fisuradas".
+- Eleva el vocabulario coloquial a terminología técnica de evaluación de daños (por ejemplo: "techo volado" -> "desprendimiento de la cobertura"; "columnas destrozadas" -> "daños estructurales severos en las columnas"; "agua encima de las rodillas" -> "anegamiento con nivel de agua superior a la altura de las rodillas").
+- NO inventes datos numéricos, ubicaciones, nombres, causas ni hechos nuevos que no estén en el texto original. Conserva todas las cantidades, lugares y servicios afectados que sí se mencionen.
+
+EJEMPLO EXACTO DE TRANSFORMACIÓN:
+Entrada: "techo de la calumnia volado, columnas destrozadas, agua encima de las rodillas"
+Salida: "Se registra el desprendimiento de la cobertura de calamina de la vivienda, acompañado de daños estructurales severos en las columnas y anegamiento interior con un nivel de agua superior a la altura de las rodillas."
 PROMPT;
 
     public function mejorar(Request $request): JsonResponse
@@ -45,13 +51,13 @@ PROMPT;
         ]);
 
         $apiKey = (string) config('services.gemini.key', '');
-        $modelo = (string) config('services.gemini.model', 'gemini-3.8-flash');
+        $modelo = (string) config('services.gemini.model', 'gemini-3.1-flash-lite');
 
         if ($apiKey === '' || $modelo === '') {
             return $this->error('La mejora con IA no está configurada. Contacte al administrador.', 503);
         }
 
-        $generationConfig = ['temperature' => 0.2, 'maxOutputTokens' => 2048];
+        $generationConfig = ['temperature' => 0.3, 'maxOutputTokens' => 2048];
 
         try {
             // La clave viaja en cabecera (equivalente a ?key=) para no exponerla en URLs ni logs.

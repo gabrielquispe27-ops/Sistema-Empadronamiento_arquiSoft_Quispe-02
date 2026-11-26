@@ -4,6 +4,13 @@
 
 @push('styles')
 <style>
+    /* Reporte de daños: lectura limpia y formal en móvil (15px, interlineado relajado, gris oscuro) */
+    textarea#danos_materiales.form-control {
+        font-size: 15px;
+        line-height: 1.625;
+        color: #1f2937;
+    }
+    textarea#danos_materiales.form-control::placeholder { color: #8a94a6; }
     .captura-section { font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--dc-steel); display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; }
     .captura-section .paso { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--dc-navy); color: #fff; font-size: .72rem; letter-spacing: 0; }
     .captura-section::after { content: ''; flex: 1; height: 1px; background: var(--dc-border); }
