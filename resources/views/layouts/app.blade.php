@@ -9,6 +9,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Defensa Civil">
+    <!-- PWA: manifiesto e iconos -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon-192.svg">
+    <link rel="apple-touch-icon" href="/icons/icon-192.svg">
     <title>@yield('title', 'Sistema de Empadronamiento en Zonas de Emergencia')</title>
 
     <!-- Tipografía: Plus Jakarta Sans -->
@@ -161,6 +165,14 @@
         .dc-search-clear { position: absolute; right: .35rem; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--dc-muted); width: 32px; height: 32px; border-radius: 50%; }
         .dc-search-clear:hover { background: var(--dc-steel-soft); color: var(--dc-navy); }
 
+        /* Botón discreto "Instalar App" (PWA) */
+        .dc-install-btn { position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 1040; display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .8rem; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; background: rgba(15, 23, 42, .88); color: #fff; font-size: .75rem; font-weight: 600; box-shadow: 0 4px 14px rgba(15, 23, 42, .3); backdrop-filter: blur(4px); cursor: pointer; }
+        .dc-install-btn:hover, .dc-install-btn:focus-visible { background: #0f172a; border-color: #f59e0b; }
+        .dc-install-btn[hidden] { display: none; }
+        @media (max-width: 767.98px) {
+            body.has-bottom-nav .dc-install-btn { bottom: calc(var(--dc-bottom-nav-h) + 10px + env(safe-area-inset-bottom)); }
+        }
+
         .alert { border: 0; border-radius: 12px; font-size: .9rem; }
         .alert-success { background: #e1f4ea; color: #146c3d; border-left: 4px solid var(--dc-green); }
         .alert-danger { background: #fbe4e4; color: #9b2a2a; border-left: 4px solid var(--dc-red); }
@@ -297,7 +309,48 @@
         </nav>
     @endauth
 
+    <!-- PWA: botón "Instalar App" (visible solo cuando el navegador dispara beforeinstallprompt) -->
+    <button type="button" id="btnInstalarApp" class="dc-install-btn" hidden aria-label="Instalar App">
+        <i class="bi bi-download"></i><span>Instalar App</span>
+    </button>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // PWA: registro del Service Worker + instalación
+        (function () {
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function () {
+                    navigator.serviceWorker.register('/sw.js').catch(function (e) {
+                        console.warn('Service Worker no registrado:', e);
+                    });
+                });
+            }
+
+            let promptInstalacion = null;
+            const btn = document.getElementById('btnInstalarApp');
+
+            window.addEventListener('beforeinstallprompt', function (e) {
+                e.preventDefault();
+                promptInstalacion = e;
+                if (btn) btn.hidden = false;
+            });
+
+            if (btn) {
+                btn.addEventListener('click', async function () {
+                    if (!promptInstalacion) return;
+                    btn.hidden = true;
+                    promptInstalacion.prompt();
+                    try { await promptInstalacion.userChoice; } catch (e) {}
+                    promptInstalacion = null;
+                });
+            }
+
+            window.addEventListener('appinstalled', function () {
+                promptInstalacion = null;
+                if (btn) btn.hidden = true;
+            });
+        })();
+    </script>
     <script>
         // Indicador de estado de conexión (chips del navbar y #badgeConexion cuando existe)
         (function () {
