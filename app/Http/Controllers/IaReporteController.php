@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -44,17 +45,13 @@ PROMPT;
         ]);
 
         $apiKey = (string) config('services.gemini.key', '');
-        $modelo = (string) config('services.gemini.model', 'gemini-2.5-flash');
+        $modelo = (string) config('services.gemini.model', 'gemini-3.8-flash');
 
         if ($apiKey === '' || $modelo === '') {
             return $this->error('La mejora con IA no está configurada. Contacte al administrador.', 503);
         }
 
         $generationConfig = ['temperature' => 0.2, 'maxOutputTokens' => 2048];
-        if (str_contains($modelo, 'flash')) {
-            // Evita que el "razonamiento" consuma los tokens de salida en una tarea de redacción simple.
-            $generationConfig['thinkingConfig'] = ['thinkingBudget' => 0];
-        }
 
         try {
             // La clave viaja en cabecera (equivalente a ?key=) para no exponerla en URLs ni logs.
@@ -75,6 +72,8 @@ PROMPT;
         }
 
         if (! $respuesta->successful()) {
+            Log::warning('Gemini API error', ['status' => $respuesta->status(), 'body' => $respuesta->body()]);
+
             return $this->error('El servicio de IA no está disponible en este momento. Intente nuevamente en unos minutos.', 503);
         }
 
