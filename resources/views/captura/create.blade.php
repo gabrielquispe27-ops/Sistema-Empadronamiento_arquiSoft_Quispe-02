@@ -72,6 +72,26 @@
     .btn-sincronizar.is-loading .bi-arrow-repeat { display: none; }
     @media (max-width: 575.98px) { .btn-sincronizar { width: 100%; } }
 
+    /* Ubicación GPS + mini-mapa (Leaflet carga bajo demanda) */
+    .gps-box { background: #f8fafc; border: 1px solid var(--dc-border); border-radius: 14px; padding: .85rem; }
+    .gps-msg { margin-top: .65rem; padding: .55rem .75rem; border-radius: 10px; font-size: .82rem; background: #fff6d6; color: #7a5b00; border-left: 4px solid #f0a30a; }
+    .gps-msg.is-info { background: #e8eef5; color: var(--dc-navy); border-left-color: var(--dc-steel); }
+    .gps-card { display: flex; gap: .75rem; align-items: flex-start; margin-top: .65rem; padding: .7rem .85rem; border-radius: 12px; background: #e1f4ea; border: 1px solid #b6e2c9; color: #146c3d; }
+    .gps-card-icono { font-size: 1.5rem; line-height: 1; padding-top: .1rem; }
+    .gps-card-datos { flex: 1; min-width: 0; }
+    .gps-card-titulo { font-weight: 700; font-size: .85rem; margin-bottom: .2rem; }
+    .gps-card-titulo span { font-weight: 500; opacity: .8; }
+    .gps-card-fila { display: flex; justify-content: space-between; gap: .75rem; font-size: .82rem; }
+    .gps-card-fila strong { font-variant-numeric: tabular-nums; color: #0f3d24; }
+    .gps-mapa-wrap { position: relative; margin-top: .65rem; border-radius: 12px; overflow: hidden; border: 1px solid var(--dc-border); }
+    .gps-mapa { height: 180px; width: 100%; background: #eef2f6; }
+    .gps-mapa-carga { position: absolute; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; background: #f4f6f9; color: var(--dc-muted); font-size: .82rem; }
+    .gps-mapa-ayuda { position: absolute; left: 8px; bottom: 8px; z-index: 450; padding: .15rem .5rem; border-radius: 999px; background: rgba(15, 23, 42, .75); color: #fff; font-size: .68rem; pointer-events: none; }
+    .gps-pin { background: transparent; border: 0; }
+    .gps-pin i { font-size: 2rem; line-height: 1; color: var(--dc-red); filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
+    .gps-offline { display: flex; align-items: flex-start; margin-top: .65rem; padding: .6rem .8rem; border-radius: 10px; font-size: .82rem; background: #fff1e0; color: #a14a00; border-left: 4px solid var(--dc-orange); }
+    .gps-offline .bi { margin-top: .1rem; }
+
     /* Espacio inferior para que la barra móvil no tape el botón de registro */
     .captura-page { padding-bottom: 1rem; }
     @media (max-width: 767.98px) {
@@ -224,6 +244,44 @@
                         </div>
                         <div id="zonaNivel" class="zona-nivel" aria-live="polite"></div>
 
+                        <!-- Ubicación GPS (opcional, offline-first): los 3 campos viajan con el registro y la cola offline -->
+                        <div class="gps-box mt-4" id="gpsBox">
+                            <input type="hidden" id="latitud" name="latitud" value="{{ old('latitud') }}">
+                            <input type="hidden" id="longitud" name="longitud" value="{{ old('longitud') }}">
+                            <input type="hidden" id="precision_gps" name="precision_gps" value="{{ old('precision_gps') }}">
+
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <span class="form-label fw-semibold mb-0"><i class="bi bi-crosshair me-1" style="color: var(--dc-orange);"></i>Ubicación GPS <small class="text-muted fw-normal">(opcional)</small></span>
+                                <button type="button" id="btnGps" class="btn btn-outline-primary btn-sm">
+                                    <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+                                    <i class="bi bi-geo-alt me-1"></i><span class="btn-gps-texto">Capturar ubicación GPS</span>
+                                </button>
+                            </div>
+
+                            <div id="gpsMensaje" class="gps-msg d-none" role="status" aria-live="polite"></div>
+
+                            <div id="gpsCard" class="gps-card is-ok d-none" aria-live="polite">
+                                <div class="gps-card-icono"><i class="bi bi-check-circle-fill"></i></div>
+                                <div class="gps-card-datos">
+                                    <div class="gps-card-titulo">Ubicación capturada <span id="gpsManual" class="d-none">· ajustada manualmente</span></div>
+                                    <div class="gps-card-fila"><span>Latitud</span><strong id="gpsLatTxt">—</strong></div>
+                                    <div class="gps-card-fila"><span>Longitud</span><strong id="gpsLngTxt">—</strong></div>
+                                    <div class="gps-card-fila"><span>Precisión</span><strong id="gpsPrecTxt">—</strong></div>
+                                </div>
+                            </div>
+
+                            <div id="gpsMapaWrap" class="gps-mapa-wrap d-none">
+                                <div id="gpsMapa" class="gps-mapa"></div>
+                                <div id="gpsMapaCarga" class="gps-mapa-carga"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Cargando mapa...</div>
+                                <div class="gps-mapa-ayuda">Arrastre el marcador para ajustar la posición</div>
+                            </div>
+
+                            <div id="gpsOffline" class="gps-offline d-none" role="status">
+                                <i class="bi bi-wifi-off me-2"></i>
+                                <span>Modo sin conexión: coordenadas capturadas vía satélite; se visualizarán en el mapa al sincronizar.</span>
+                            </div>
+                        </div>
+
                         <div class="d-flex align-items-end justify-content-between flex-wrap gap-2 mt-4 mb-1">
                             <label for="danos_materiales" class="form-label fw-semibold mb-0">Daños Materiales Reportados</label>
                             <div class="d-flex align-items-center gap-2">
@@ -264,7 +322,7 @@
     (function () {
         const STORAGE_KEY = 'empadronamiento_borrador_actual';
         const form = document.getElementById('formCaptura');
-        const campos = ['dni', 'nombres', 'apellidos', 'zona_id', 'danos_materiales'];
+        const campos = ['dni', 'nombres', 'apellidos', 'zona_id', 'danos_materiales', 'latitud', 'longitud', 'precision_gps'];
 
         if (!form) return;
 
@@ -387,6 +445,9 @@
                 zona_id: sel ? sel.value : '',
                 zona_nombre: opt && opt.value ? opt.text.replace(/\s+/g, ' ').trim() : '',
                 danos_materiales: get('danos_materiales'),
+                latitud: get('latitud'),
+                longitud: get('longitud'),
+                precision_gps: get('precision_gps'),
                 fecha_hora: new Date().toISOString()
             };
         }
@@ -402,6 +463,7 @@
             if (dniEl) dniEl.dispatchEvent(new Event('input', { bubbles: true })); // reinicia estado RENIEC
             const zonaEl = document.getElementById('zona_id');
             if (zonaEl) zonaEl.dispatchEvent(new Event('change'));
+            window.dispatchEvent(new CustomEvent('captura:limpiada')); // reinicia la UI de GPS/mapa
             localStorage.removeItem(STORAGE_KEY);
             if (dniEl) dniEl.focus();
         }
@@ -427,6 +489,10 @@
             const fd = new FormData();
             fd.append('_token', tokenCsrf());
             ['dni', 'nombres', 'apellidos', 'zona_id', 'danos_materiales'].forEach(function (k) { fd.append(k, reg[k]); });
+            // GPS opcional: solo se envía si existe (los registros antiguos de la cola no traen estos campos)
+            ['latitud', 'longitud', 'precision_gps'].forEach(function (k) {
+                if (reg[k] !== undefined && reg[k] !== null && reg[k] !== '') fd.append(k, reg[k]);
+            });
             return fetch(form.action, {
                 method: 'POST',
                 body: fd,
@@ -816,6 +882,206 @@
                 ocupar(false);
             }
         });
+    })();
+</script>
+@endpush
+
+@push('scripts')
+<script>
+    // Ubicación GPS offline-first + mini-mapa Leaflet opcional.
+    // Los valores viven en inputs ocultos (latitud, longitud, precision_gps): el borrador local y la cola offline los serializan.
+    (function () {
+        const form = document.getElementById('formCaptura');
+        const btn = document.getElementById('btnGps');
+        if (!form || !btn) return;
+
+        const inLat = document.getElementById('latitud');
+        const inLng = document.getElementById('longitud');
+        const inPre = document.getElementById('precision_gps');
+        const card = document.getElementById('gpsCard');
+        const msg = document.getElementById('gpsMensaje');
+        const wrap = document.getElementById('gpsMapaWrap');
+        const mapaEl = document.getElementById('gpsMapa');
+        const mapaCarga = document.getElementById('gpsMapaCarga');
+        const offline = document.getElementById('gpsOffline');
+        const manualTxt = document.getElementById('gpsManual');
+        const btnTexto = btn.querySelector('.btn-gps-texto');
+        const spinner = btn.querySelector('.spinner-border');
+        const TEXTO_BTN = btnTexto.textContent;
+
+        const LEAFLET_CSS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+        const LEAFLET_JS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+        const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+        const TIMEOUT_MAPA_MS = 10000;
+
+        let map = null, marker = null, leafletPromise = null, timerMapa = null, capturando = false;
+
+        function num(el) { const v = parseFloat(el.value); return isFinite(v) ? v : null; }
+        function hayCoordenadas() { return num(inLat) !== null && num(inLng) !== null; }
+        function emitir() { inLat.dispatchEvent(new Event('input', { bubbles: true })); } // dispara el guardado del borrador
+
+        function mostrarMensaje(tipo, texto) {
+            if (!tipo) { msg.classList.add('d-none'); msg.textContent = ''; return; }
+            msg.className = 'gps-msg' + (tipo === 'info' ? ' is-info' : '');
+            msg.textContent = texto;
+        }
+        function avisoOffline(visible) { offline.classList.toggle('d-none', !visible); }
+
+        function mostrarTarjeta(manual) {
+            document.getElementById('gpsLatTxt').textContent = num(inLat).toFixed(6);
+            document.getElementById('gpsLngTxt').textContent = num(inLng).toFixed(6);
+            const p = parseInt(inPre.value, 10);
+            document.getElementById('gpsPrecTxt').textContent = isFinite(p) ? '± ' + p + ' m' : 'No disponible';
+            manualTxt.classList.toggle('d-none', !manual);
+            card.classList.remove('d-none');
+            btnTexto.textContent = 'Actualizar ubicación GPS';
+        }
+
+        function establecer(lat, lng, precision, manual) {
+            inLat.value = lat.toFixed(7);
+            inLng.value = lng.toFixed(7);
+            if (precision !== null && precision !== undefined) inPre.value = String(Math.round(precision));
+            emitir();
+            mostrarTarjeta(manual);
+        }
+
+        // ---- Leaflet bajo demanda (no bloquea la carga de la página) ----
+        function cargarLeaflet() {
+            if (window.L && window.L.map) return Promise.resolve(true);
+            if (leafletPromise) return leafletPromise;
+            leafletPromise = new Promise(function (resolve) {
+                let terminado = false, pendientes = 2;
+                const css = document.createElement('link');
+                const js = document.createElement('script');
+                const t = setTimeout(function () { fin(false); }, TIMEOUT_MAPA_MS);
+                function fin(ok) {
+                    if (terminado) return;
+                    terminado = true;
+                    clearTimeout(t);
+                    if (!ok) { leafletPromise = null; css.remove(); js.remove(); }
+                    resolve(ok);
+                }
+                function listo() { if (--pendientes === 0) fin(!!(window.L && window.L.map)); }
+                css.rel = 'stylesheet'; css.href = LEAFLET_CSS; css.onload = listo; css.onerror = function () { fin(false); };
+                js.src = LEAFLET_JS; js.async = true; js.onload = listo; js.onerror = function () { fin(false); };
+                document.head.appendChild(css);
+                document.head.appendChild(js);
+            });
+            return leafletPromise;
+        }
+
+        function destruirMapa() {
+            clearTimeout(timerMapa);
+            if (map) { try { map.remove(); } catch (e) {} }
+            map = null; marker = null;
+            wrap.classList.add('d-none');
+        }
+        function falloMapa() {
+            destruirMapa();
+            avisoOffline(true);
+        }
+
+        function crearMapa() {
+            const lat = num(inLat), lng = num(inLng);
+            avisoOffline(false);
+            wrap.classList.remove('d-none');
+            mapaCarga.classList.remove('d-none');
+
+            map = L.map(mapaEl, { scrollWheelZoom: false }).setView([lat, lng], 17);
+            map.attributionControl.setPrefix(false);
+
+            let cargo = false, errores = 0;
+            const capa = L.tileLayer(TILES, { maxZoom: 19, attribution: '© OpenStreetMap' });
+            // Si no llega ningún tile, se oculta el mapa y se muestra el aviso (nunca un recuadro gris roto)
+            timerMapa = setTimeout(function () { if (!cargo) falloMapa(); }, TIMEOUT_MAPA_MS);
+            capa.on('tileload', function () {
+                if (cargo) return;
+                cargo = true;
+                clearTimeout(timerMapa);
+                mapaCarga.classList.add('d-none');
+            });
+            capa.on('tileerror', function () {
+                errores++;
+                if (!cargo && errores >= 3) falloMapa();
+            });
+            capa.addTo(map);
+
+            marker = L.marker([lat, lng], {
+                draggable: true,
+                icon: L.divIcon({ className: 'gps-pin', html: '<i class="bi bi-geo-alt-fill"></i>', iconSize: [32, 32], iconAnchor: [16, 30] })
+            }).addTo(map);
+            marker.on('dragend', function () {
+                const p = marker.getLatLng();
+                establecer(p.lat, p.lng, null, true);
+            });
+            setTimeout(function () { if (map) map.invalidateSize(); }, 80);
+        }
+
+        function renderMapa() {
+            if (!hayCoordenadas()) return;
+            if (!navigator.onLine) { if (!map) avisoOffline(true); return; }
+            if (map) {
+                const ll = [num(inLat), num(inLng)];
+                marker.setLatLng(ll);
+                map.setView(ll, Math.max(map.getZoom(), 17));
+                return;
+            }
+            cargarLeaflet().then(function (ok) {
+                if (map || !hayCoordenadas()) return;
+                if (!ok || !navigator.onLine) { avisoOffline(true); return; }
+                crearMapa();
+            });
+        }
+
+        // ---- Captura GPS ----
+        function setCapturando(on) {
+            capturando = on;
+            btn.disabled = on;
+            spinner.classList.toggle('d-none', !on);
+            btnTexto.textContent = on ? 'Obteniendo ubicación...' : (hayCoordenadas() ? 'Actualizar ubicación GPS' : TEXTO_BTN);
+        }
+
+        btn.addEventListener('click', function () {
+            if (capturando) return;
+            if (!('geolocation' in navigator)) {
+                mostrarMensaje('warning', 'Este dispositivo no permite obtener la ubicación GPS. Puede enviar el registro sin ella.');
+                return;
+            }
+            setCapturando(true);
+            mostrarMensaje('info', 'Buscando señal GPS...');
+            navigator.geolocation.getCurrentPosition(function (pos) {
+                setCapturando(false);
+                mostrarMensaje(null);
+                establecer(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, false);
+                renderMapa();
+            }, function (err) {
+                setCapturando(false);
+                const textos = {
+                    1: 'Permiso de ubicación denegado. Actívelo en el navegador para usar el GPS; puede enviar el registro sin ubicación.',
+                    2: 'No se pudo determinar la ubicación (sin señal GPS). Intente en un lugar abierto; puede enviar el registro sin ubicación.',
+                    3: 'El GPS tardó demasiado en responder. Intente nuevamente; puede enviar el registro sin ubicación.'
+                };
+                mostrarMensaje('warning', textos[err.code] || 'No se pudo obtener la ubicación. Puede enviar el registro sin ella.');
+            }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+        });
+
+        // ---- Conectividad y reinicio del formulario ----
+        window.addEventListener('online', function () { if (hayCoordenadas() && !map) renderMapa(); });
+        window.addEventListener('offline', function () { if (hayCoordenadas() && !map) avisoOffline(true); });
+        window.addEventListener('captura:limpiada', function () {
+            destruirMapa();
+            card.classList.add('d-none');
+            manualTxt.classList.add('d-none');
+            mostrarMensaje(null);
+            avisoOffline(false);
+            btnTexto.textContent = TEXTO_BTN;
+        });
+
+        // Coordenadas restauradas del borrador local (o de old())
+        if (hayCoordenadas()) {
+            mostrarTarjeta(false);
+            renderMapa();
+        }
     })();
 </script>
 @endpush

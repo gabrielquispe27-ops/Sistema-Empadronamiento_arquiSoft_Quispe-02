@@ -54,6 +54,10 @@ class EmpadronamientoService implements EmpadronamientoServiceInterface
             'zona_id' => (int) $datos['zona_id'],
             'danos_materiales' => trim((string) ($datos['danos_materiales'] ?? '')),
             'registrado_por' => $datos['registrado_por'] ?? null,
+            // Geolocalización GPS opcional (offline-first): se persiste solo si llegan ambas coordenadas.
+            'latitud' => isset($datos['latitud'], $datos['longitud']) ? (float) $datos['latitud'] : null,
+            'longitud' => isset($datos['latitud'], $datos['longitud']) ? (float) $datos['longitud'] : null,
+            'precision_gps' => isset($datos['latitud'], $datos['longitud'], $datos['precision_gps']) ? (int) $datos['precision_gps'] : null,
         ];
 
         RegistrarDamnificadoJob::dispatch($dto);

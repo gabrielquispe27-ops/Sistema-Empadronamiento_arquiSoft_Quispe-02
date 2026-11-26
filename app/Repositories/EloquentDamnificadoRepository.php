@@ -28,6 +28,13 @@ class EloquentDamnificadoRepository implements DamnificadoRepositoryInterface
      */
     public function upsertPadron(array $datos): void
     {
+        $tieneGps = isset($datos['latitud'], $datos['longitud']);
+        $columnasActualizables = ['nombres', 'apellidos', 'zona_id', 'danos_materiales', 'updated_at'];
+        if ($tieneGps) {
+            // No se pisa una ubicación existente con NULL cuando el reenvío no trae GPS.
+            array_push($columnasActualizables, 'latitud', 'longitud', 'precision_gps');
+        }
+
         $this->model->newQuery()->upsert(
             [
                 [
@@ -37,10 +44,13 @@ class EloquentDamnificadoRepository implements DamnificadoRepositoryInterface
                     'zona_id' => (int) $datos['zona_id'],
                     'danos_materiales' => (string) ($datos['danos_materiales'] ?? ''),
                     'registrado_por' => isset($datos['registrado_por']) ? (int) $datos['registrado_por'] : null,
+                    'latitud' => $tieneGps ? round((float) $datos['latitud'], 7) : null,
+                    'longitud' => $tieneGps ? round((float) $datos['longitud'], 7) : null,
+                    'precision_gps' => $tieneGps && isset($datos['precision_gps']) ? (int) $datos['precision_gps'] : null,
                 ],
             ],
             ['dni'],
-            ['nombres', 'apellidos', 'zona_id', 'danos_materiales', 'updated_at']
+            $columnasActualizables
         );
     }
 

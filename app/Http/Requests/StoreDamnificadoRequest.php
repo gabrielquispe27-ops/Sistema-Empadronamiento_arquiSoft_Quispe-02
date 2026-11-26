@@ -30,6 +30,9 @@ class StoreDamnificadoRequest extends FormRequest
             'apellidos' => ['required', 'string', 'max:120'],
             'zona_id' => ['required', 'integer', 'min:1', 'zona_valida'],
             'danos_materiales' => ['required', 'string', 'max:1000'],
+            'latitud' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitud'],
+            'longitud' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitud'],
+            'precision_gps' => ['nullable', 'integer', 'min:0'],
         ];
     }
 
@@ -48,6 +51,14 @@ class StoreDamnificadoRequest extends FormRequest
             'apellidos.required' => 'Los apellidos del damnificado son obligatorios.',
             'zona_id.required' => 'Debe seleccionar la zona de emergencia afectada.',
             'danos_materiales.required' => 'Debe describir los daños materiales reportados.',
+            'latitud.between' => 'La latitud GPS debe estar entre -90 y 90.',
+            'latitud.numeric' => 'La latitud GPS no es válida.',
+            'longitud.between' => 'La longitud GPS debe estar entre -180 y 180.',
+            'longitud.numeric' => 'La longitud GPS no es válida.',
+            'latitud.required_with' => 'La ubicación GPS requiere latitud y longitud.',
+            'longitud.required_with' => 'La ubicación GPS requiere latitud y longitud.',
+            'precision_gps.integer' => 'La precisión del GPS debe ser un número entero de metros.',
+            'precision_gps.min' => 'La precisión del GPS no puede ser negativa.',
         ];
     }
 }
