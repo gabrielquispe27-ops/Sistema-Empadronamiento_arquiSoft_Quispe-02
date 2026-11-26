@@ -44,6 +44,27 @@
     .btn-enviar.is-loading .bi-send-check-fill { display: none; }
     .captura-card .card-header h1 { font-size: 1.1rem; font-weight: 800; margin: 0; }
 
+    /* Modo offline: avisos y panel de cola */
+    .avisos-captura { position: fixed; top: 76px; left: 50%; transform: translateX(-50%); width: min(94vw, 480px); z-index: 1080; display: flex; flex-direction: column; gap: .5rem; pointer-events: none; }
+    .avisos-captura .alert { pointer-events: auto; margin: 0; font-size: .88rem; }
+    .alert-warning { background: #fff4dc; color: #7a5200; border-left: 4px solid #f0a30a; }
+    .alert-info { background: #e3effa; color: #1e4a73; border-left: 4px solid var(--dc-steel); }
+    .cola-panel { background: linear-gradient(135deg, #fff8e8, #fff1d6); border: 1px solid #f3d9a0; border-radius: 16px; padding: .9rem 1rem; box-shadow: 0 4px 14px rgba(240, 163, 10, .15); animation: dcFadeIn .3s ease both; }
+    .cola-icono { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #ffe2a3; color: #9a5b00; font-size: 1.3rem; flex-shrink: 0; }
+    .cola-titulo { font-weight: 700; font-size: .92rem; color: #6b4300; }
+    .cola-numero { display: inline-block; min-width: 1.6em; padding: 0 .4em; text-align: center; border-radius: 999px; background: #9a5b00; color: #fff; }
+    .cola-toggle { border: 0; background: transparent; padding: 0; font-size: .78rem; font-weight: 600; color: #9a5b00; }
+    .cola-toggle .bi { display: inline-block; transition: transform .2s ease; }
+    .cola-toggle[aria-expanded="true"] .bi { transform: rotate(180deg); }
+    .cola-lista { margin-top: .75rem !important; border-top: 1px dashed #e8c987; max-height: 190px; overflow-y: auto; }
+    .cola-item { display: flex; align-items: center; gap: .6rem; padding: .5rem .1rem; border-bottom: 1px solid #f3e3bd; font-size: .85rem; }
+    .cola-item:last-child { border-bottom: 0; }
+    .cola-item-nombre { font-weight: 600; color: var(--dc-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-sincronizar .spinner-border { display: none; }
+    .btn-sincronizar.is-loading .spinner-border { display: inline-block; }
+    .btn-sincronizar.is-loading .bi-arrow-repeat { display: none; }
+    @media (max-width: 575.98px) { .btn-sincronizar { width: 100%; } }
+
     /* Espacio inferior para que la barra móvil no tape el botón de registro */
     .captura-page { padding-bottom: 1rem; }
     @media (max-width: 767.98px) {
@@ -67,6 +88,29 @@
                 <span id="badgeConexion" class="badge-conexion"><i class="bi bi-wifi"></i> En línea</span>
             </div>
             <div class="card-body p-4">
+                <!-- Avisos flotantes del modo offline -->
+                <div id="avisosCaptura" class="avisos-captura" aria-live="polite"></div>
+
+                <!-- Panel de registros pendientes de sincronización (oculto si la cola está vacía) -->
+                <div id="panelCola" class="cola-panel mb-4" hidden>
+                    <div class="d-flex align-items-center gap-3 flex-wrap flex-sm-nowrap">
+                        <div class="cola-icono"><i class="bi bi-cloud-arrow-up-fill"></i></div>
+                        <div class="flex-grow-1">
+                            <div class="cola-titulo"><span id="colaContador" class="cola-numero">0</span> <span id="colaTexto">registros pendientes de envío</span></div>
+                            <button class="cola-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#colaDetalle" aria-expanded="false" aria-controls="colaDetalle">
+                                Ver detalle <i class="bi bi-chevron-down"></i>
+                            </button>
+                        </div>
+                        <button id="btnSincronizar" type="button" class="btn btn-sm btn-warning btn-sincronizar">
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            <i class="bi bi-arrow-repeat me-1"></i>Sincronizar ahora
+                        </button>
+                    </div>
+                    <div class="collapse" id="colaDetalle">
+                        <ul id="colaLista" class="cola-lista list-unstyled mb-0"></ul>
+                    </div>
+                </div>
+
                 <div class="d-flex align-items-start gap-2 text-muted small mb-4">
                     <i class="bi bi-info-circle mt-1"></i>
                     <span>Formulario optimizado para campo (<em>Mobile-First</em> - RF01). Ante microcortes de señal, el borrador se conserva automáticamente en el dispositivo (<code>localStorage</code>).</span>
@@ -229,28 +273,315 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
         });
 
-        // Limpiar borrador tras envío exitoso
-        form.addEventListener('submit', function () {
-            localStorage.removeItem(STORAGE_KEY);
-        });
-
-        // Efecto de carga en el botón de registro (solo presentación)
+        // ============================================================
+        // MODO OFFLINE REAL: cola de sincronización en localStorage
+        // El borrador actual se limpia solo tras envío exitoso o tras encolar offline.
+        // ============================================================
+        const COLA_KEY = 'cola_offline_empadronamiento';
         const btnEnviar = document.getElementById('btnEnviar');
         const textoBtnOriginal = btnEnviar ? btnEnviar.querySelector('.btn-enviar-texto').textContent : '';
-        form.addEventListener('submit', function () {
+        const panelCola = document.getElementById('panelCola');
+        const colaContador = document.getElementById('colaContador');
+        const colaTexto = document.getElementById('colaTexto');
+        const colaLista = document.getElementById('colaLista');
+        const btnSincronizar = document.getElementById('btnSincronizar');
+        const contAvisos = document.getElementById('avisosCaptura');
+        let enviando = false;
+        let sincronizando = false;
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        function leerCola() {
+            try {
+                const c = JSON.parse(localStorage.getItem(COLA_KEY) || '[]');
+                return Array.isArray(c) ? c : [];
+            } catch (e) { return []; }
+        }
+        function guardarCola(cola) {
+            try {
+                localStorage.setItem(COLA_KEY, JSON.stringify(cola));
+            } catch (e) { return false; }
+            window.dispatchEvent(new CustomEvent('cola-offline:cambio'));
+            return true;
+        }
+        function quitarDeCola(dni) {
+            guardarCola(leerCola().filter(function (r) { return r.dni !== dni; }));
+        }
+        function tokenCsrf() {
+            const t = form.querySelector('input[name="_token"]');
+            return t ? t.value : '';
+        }
+
+        // Avisos flotantes (success / warning / danger / info)
+        function aviso(tipo, html, ms) {
+            if (!contAvisos) return;
+            const iconos = { success: 'check-circle-fill', warning: 'exclamation-triangle-fill', danger: 'x-octagon-fill', info: 'info-circle-fill' };
+            const div = document.createElement('div');
+            div.className = 'alert alert-' + tipo + ' alert-dismissible fade show d-flex align-items-start shadow';
+            div.setAttribute('role', 'alert');
+            div.innerHTML = '<i class="bi bi-' + (iconos[tipo] || 'info-circle-fill') + ' me-2 mt-1"></i><div class="pe-3">' + html + '</div>' +
+                '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>';
+            contAvisos.appendChild(div);
+            if (ms) {
+                setTimeout(function () {
+                    if (!div.isConnected) return;
+                    if (window.bootstrap && bootstrap.Alert) bootstrap.Alert.getOrCreateInstance(div).close();
+                    else div.remove();
+                }, ms);
+            }
+        }
+
+        // Panel compacto de pendientes (oculto si la cola está vacía)
+        function refrescarPanel() {
+            const cola = leerCola();
+            if (!panelCola) return;
+            panelCola.hidden = cola.length === 0;
+            if (colaContador) colaContador.textContent = cola.length;
+            if (colaTexto) colaTexto.textContent = cola.length === 1 ? 'registro pendiente de envío' : 'registros pendientes de envío';
+            if (colaLista) {
+                colaLista.innerHTML = cola.map(function (r) {
+                    const hora = r.fecha_hora ? new Date(r.fecha_hora).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '';
+                    return '<li class="cola-item">' +
+                        '<span class="font-monospace fw-bold">' + esc(r.dni) + '</span>' +
+                        '<span class="cola-item-nombre">' + esc(r.apellidos) + ', ' + esc(r.nombres) + '</span>' +
+                        '<small class="text-muted ms-auto text-nowrap">' + esc(r.zona_nombre || '') + (hora ? ' · ' + hora : '') + '</small></li>';
+                }).join('');
+            }
+        }
+
+        function setCargando(activo) {
             if (!btnEnviar) return;
-            btnEnviar.classList.add('is-loading');
-            btnEnviar.querySelector('.btn-enviar-texto').textContent = 'Enviando registro...';
-            // Se deshabilita tras despachar el envío para evitar doble registro
-            setTimeout(function () { btnEnviar.disabled = true; }, 0);
+            btnEnviar.classList.toggle('is-loading', activo);
+            btnEnviar.disabled = activo;
+            btnEnviar.querySelector('.btn-enviar-texto').textContent = activo ? 'Enviando registro...' : textoBtnOriginal;
+        }
+
+        function leerFormulario() {
+            const get = function (id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+            const sel = document.getElementById('zona_id');
+            const opt = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+            return {
+                dni: get('dni'),
+                nombres: get('nombres'),
+                apellidos: get('apellidos'),
+                zona_id: sel ? sel.value : '',
+                zona_nombre: opt && opt.value ? opt.text.replace(/\s+/g, ' ').trim() : '',
+                danos_materiales: get('danos_materiales'),
+                fecha_hora: new Date().toISOString()
+            };
+        }
+
+        // Deja el formulario listo para la siguiente persona (sin tocar ids ni names)
+        function limpiarFormulario() {
+            campos.forEach(function (campo) {
+                const el = document.getElementById(campo);
+                if (el) el.value = '';
+            });
+            form.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
+            const dniEl = document.getElementById('dni');
+            if (dniEl) dniEl.dispatchEvent(new Event('input', { bubbles: true })); // reinicia estado RENIEC
+            const zonaEl = document.getElementById('zona_id');
+            if (zonaEl) zonaEl.dispatchEvent(new Event('change'));
+            localStorage.removeItem(STORAGE_KEY);
+            if (dniEl) dniEl.focus();
+        }
+
+        function encolarOffline(reg, mensajeHtml) {
+            const cola = leerCola();
+            if (cola.some(function (r) { return r.dni === reg.dni; })) {
+                aviso('warning', 'El DNI <strong>' + esc(reg.dni) + '</strong> ya está en la cola local pendiente de envío. No se duplicó el registro.', 8000);
+                return false;
+            }
+            cola.push(reg);
+            if (!guardarCola(cola)) {
+                aviso('danger', 'No se pudo guardar el registro en el dispositivo (almacenamiento lleno o bloqueado).');
+                return false;
+            }
+            limpiarFormulario();
+            refrescarPanel();
+            aviso('warning', mensajeHtml || '<strong>Sin conexión.</strong> Registro guardado en el dispositivo. Se enviará al recuperar la señal.', 7000);
+            return true;
+        }
+
+        function enviarRegistro(reg) {
+            const fd = new FormData();
+            fd.append('_token', tokenCsrf());
+            ['dni', 'nombres', 'apellidos', 'zona_id', 'danos_materiales'].forEach(function (k) { fd.append(k, reg[k]); });
+            return fetch(form.action, {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-TOKEN': tokenCsrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            });
+        }
+
+        // Si el token CSRF caducó (419), se obtiene uno nuevo de la propia página
+        function refrescarToken() {
+            return fetch(window.location.href, { credentials: 'same-origin' })
+                .then(function (r) {
+                    if (r.redirected && /\/login/.test(r.url)) return false;
+                    return r.text().then(function (html) {
+                        const doc = new DOMParser().parseFromString(html, 'text/html');
+                        const nuevo = doc.querySelector('#formCaptura input[name="_token"]');
+                        const actual = form.querySelector('input[name="_token"]');
+                        if (nuevo && actual) { actual.value = nuevo.value; return true; }
+                        return false;
+                    });
+                })
+                .catch(function () { return false; });
+        }
+
+        // Envía con reintento único ante 419
+        function enviarConReintento(reg) {
+            return enviarRegistro(reg).then(function (res) {
+                if (res.status !== 419) return res;
+                return refrescarToken().then(function (ok) {
+                    return ok ? enviarRegistro(reg) : res;
+                });
+            });
+        }
+
+        function sesionExpirada(res) {
+            return res.status === 401 || res.status === 419 || (res.redirected && /\/login/.test(res.url));
+        }
+
+        function mensajesDeError(res) {
+            return res.json().then(function (j) {
+                if (j && j.errors) {
+                    return Object.keys(j.errors).reduce(function (acc, k) { return acc.concat(j.errors[k]); }, []).join(' ');
+                }
+                return (j && j.message) || '';
+            }).catch(function () { return ''; });
+        }
+
+        // Interceptar el envío del formulario (en línea → fetch; sin red → cola local)
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (enviando) return;
+            const reg = leerFormulario();
+
+            if (!navigator.onLine) {
+                encolarOffline(reg);
+                return;
+            }
+
+            enviando = true;
+            setCargando(true);
+
+            enviarConReintento(reg)
+                .then(function (res) {
+                    if (sesionExpirada(res)) {
+                        encolarOffline(reg, '<strong>Sesión expirada.</strong> Registro guardado en el dispositivo. Inicie sesión de nuevo para sincronizarlo.');
+                        return null;
+                    }
+                    if (res.status === 422 || res.status === 409) {
+                        return mensajesDeError(res).then(function (msg) {
+                            aviso('warning', esc(msg || (res.status === 409 ? 'El DNI ya se encuentra registrado.' : 'Revise los datos del formulario.')), 9000);
+                            const dniEl = document.getElementById('dni');
+                            if (dniEl && res.status === 409) dniEl.classList.add('is-invalid');
+                        });
+                    }
+                    if (res.ok || res.redirected) {
+                        limpiarFormulario();
+                        aviso('success', '<strong>Registro enviado.</strong> Recibido y encolado para procesamiento asíncrono.', 5000);
+                        return null;
+                    }
+                    encolarOffline(reg, '<strong>El servidor no respondió correctamente (HTTP ' + res.status + ').</strong> Registro guardado en el dispositivo para reintentar.');
+                    return null;
+                })
+                .catch(function () {
+                    // Error de red durante el fetch: se conserva el registro localmente
+                    encolarOffline(reg);
+                })
+                .finally(function () {
+                    enviando = false;
+                    setCargando(false);
+                });
         });
         window.addEventListener('pageshow', function (e) {
-            if (e.persisted && btnEnviar) {
-                btnEnviar.classList.remove('is-loading');
-                btnEnviar.disabled = false;
-                btnEnviar.querySelector('.btn-enviar-texto').textContent = textoBtnOriginal;
+            if (e.persisted) { enviando = false; setCargando(false); refrescarPanel(); }
+        });
+
+        // Sincronización uno por uno de los registros pendientes
+        async function sincronizar(manual) {
+            if (sincronizando) return;
+            if (!navigator.onLine) {
+                if (manual) aviso('warning', '<strong>Sin conexión.</strong> Los registros se enviarán automáticamente al recuperar la señal.', 6000);
+                return;
+            }
+            const pendientes = leerCola();
+            if (!pendientes.length) return;
+
+            sincronizando = true;
+            if (btnSincronizar) { btnSincronizar.disabled = true; btnSincronizar.classList.add('is-loading'); }
+
+            let enviados = 0;
+            const rechazados = [];
+            let interrumpido = false;
+
+            for (const reg of pendientes) {
+                try {
+                    const res = await enviarConReintento(reg);
+                    if (sesionExpirada(res)) {
+                        aviso('warning', '<strong>Sesión expirada.</strong> Recargue la página e inicie sesión para sincronizar los pendientes.');
+                        interrumpido = true;
+                        break;
+                    }
+                    if (res.status === 422 || res.status === 409) {
+                        const msg = await mensajesDeError(res);
+                        rechazados.push('DNI <strong>' + esc(reg.dni) + '</strong>: ' + esc(msg || 'rechazado por el servidor'));
+                        quitarDeCola(reg.dni); // no bloquea al resto
+                        refrescarPanel();
+                        continue;
+                    }
+                    if (res.ok || res.redirected) {
+                        quitarDeCola(reg.dni);
+                        enviados++;
+                        refrescarPanel();
+                        continue;
+                    }
+                    aviso('warning', 'El servidor respondió HTTP ' + res.status + '. Se reintentará más tarde.', 7000);
+                    interrumpido = true;
+                    break;
+                } catch (err) {
+                    aviso('warning', 'Conexión inestable. Quedan registros pendientes; se reintentará al volver la señal.', 7000);
+                    interrumpido = true;
+                    break;
+                }
+            }
+
+            sincronizando = false;
+            if (btnSincronizar) { btnSincronizar.disabled = false; btnSincronizar.classList.remove('is-loading'); }
+            refrescarPanel();
+
+            if (rechazados.length) {
+                aviso('warning', '<strong>' + rechazados.length + ' registro(s) no se pudieron registrar y se descartaron de la cola:</strong><br>' + rechazados.join('<br>'));
+            }
+            if (!interrumpido && leerCola().length === 0 && enviados > 0) {
+                aviso('success', '<strong>Sincronización completa.</strong> ' + enviados + (enviados === 1 ? ' registro enviado' : ' registros enviados') + ' correctamente.', 7000);
+            }
+        }
+
+        if (btnSincronizar) btnSincronizar.addEventListener('click', function () { sincronizar(true); });
+        window.addEventListener('online', function () {
+            if (leerCola().length) {
+                aviso('info', '<strong>Conexión recuperada.</strong> Sincronizando registros pendientes...', 4000);
+                sincronizar(false);
             }
         });
+        window.addEventListener('storage', function (e) { if (e.key === COLA_KEY) refrescarPanel(); });
+
+        refrescarPanel();
+        // Al cargar la página con conexión y pendientes → sincronizar automáticamente
+        setTimeout(function () { if (navigator.onLine && leerCola().length) sincronizar(false); }, 600);
 
         // Indicador de nivel de afectación de la zona elegida (solo presentación)
         const zonaSelect = document.getElementById('zona_id');

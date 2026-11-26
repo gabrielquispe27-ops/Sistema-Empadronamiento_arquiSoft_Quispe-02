@@ -109,6 +109,11 @@
             .dc-footer { font-size: .75rem; }
         }
 
+        /* Badge de registros pendientes de sincronizar (cola offline) */
+        .dc-cola-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 .35rem; border-radius: 999px; background: #f0a30a; color: #1f1400; font-size: .68rem; font-weight: 800; line-height: 1; animation: dcPulseOff 1.6s ease-out infinite; }
+        .dc-cola-badge[hidden] { display: none; }
+        .dc-cola-badge-float { position: absolute; top: 8px; left: calc(50% + 6px); }
+
         /* Badge de conexión (formulario de captura) */
         .badge-conexion { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .75rem; border-radius: 999px; font-weight: 600; font-size: .75rem; background: #e6f6ed; color: var(--dc-green); }
         .badge-conexion.is-offline { background: #fff1e0; color: var(--dc-orange); }
@@ -203,6 +208,7 @@
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('captura.*') ? 'active' : '' }}" href="{{ route('captura.create') }}">
                                 <i class="bi bi-pencil-square me-1"></i>Captura en Campo
+                                <span class="dc-cola-badge js-cola-badge ms-1" title="Registros pendientes de sincronizar" hidden>0</span>
                             </a>
                         </li>
                         @if ($rolActual === 'coordinador')
@@ -269,6 +275,7 @@
             <a class="dc-bn-item {{ request()->routeIs('captura.*') ? 'active' : '' }}" href="{{ route('captura.create') }}">
                 <i class="bi {{ request()->routeIs('captura.*') ? 'bi-pencil-square' : 'bi-pencil' }}"></i>
                 <span>Captura</span>
+                <span class="dc-cola-badge dc-cola-badge-float js-cola-badge" hidden>0</span>
             </a>
             @if ($rolActual === 'coordinador')
                 <a class="dc-bn-item {{ request()->routeIs('dashboard.*') ? 'active' : '' }}" href="{{ route('dashboard.index') }}">
@@ -312,6 +319,22 @@
             window.addEventListener('online', actualizarConexion);
             window.addEventListener('offline', actualizarConexion);
             actualizarConexion();
+        })();
+
+        // Badge de pendientes de la cola offline (cualquier pantalla)
+        (function () {
+            const KEY = 'cola_offline_empadronamiento';
+            function actualizarBadgeCola() {
+                let n = 0;
+                try { const c = JSON.parse(localStorage.getItem(KEY) || '[]'); n = Array.isArray(c) ? c.length : 0; } catch (e) {}
+                document.querySelectorAll('.js-cola-badge').forEach(function (b) {
+                    b.textContent = n;
+                    b.hidden = n === 0;
+                });
+            }
+            window.addEventListener('cola-offline:cambio', actualizarBadgeCola);
+            window.addEventListener('storage', actualizarBadgeCola);
+            actualizarBadgeCola();
         })();
     </script>
     @stack('scripts')
