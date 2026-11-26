@@ -7,7 +7,7 @@
  *    ni las llamadas a /captura/consultar-dni/: pasan directo a la red, sin caché.
  *    (La cola offline y la sincronización viven en el cliente y no se alteran.)
  */
-const VERSION = 'v2';
+const VERSION = 'v4';
 const CACHE_PAGES = 'dc-paginas-' + VERSION;
 const CACHE_ASSETS = 'dc-assets-' + VERSION;
 const CACHES_ACTUALES = [CACHE_PAGES, CACHE_ASSETS];

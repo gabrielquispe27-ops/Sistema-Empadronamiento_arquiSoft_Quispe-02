@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0f172a">
-    <!-- PWA-ready: comportamiento tipo app instalable en pantalla de inicio -->
+    <meta name="theme-color" content="#0A2E50">
+    <!-- Comportamiento de aplicación instalable en pantalla de inicio -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -20,31 +20,31 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- Bootstrap 5 CSS (Mobile-First - RC01, DA02) + Bootstrap Icons -->
+    <!-- Bootstrap 5 CSS + Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
     <style>
         :root {
-            --dc-navy: #14284b;
-            --dc-navy-dark: #0f172a;
-            --dc-navy-mid: #1e3a5f;
+            --dc-navy: #0A2E50;
+            --dc-navy-dark: #07213A;
+            --dc-navy-mid: #12406E;
             --dc-steel: #2f5d8a;
             --dc-steel-soft: #e8eef5;
             --dc-bg: #f4f6f9;
             --dc-border: #e3e8ef;
             --dc-text: #1f2a3c;
-            --dc-muted: #6b778c;
-            --dc-orange: #e8730c;
+            --dc-muted: #526075;
+            --dc-orange: #F39C12;
             --dc-green: #1f9254;
             --dc-red: #c93a3a;
             --dc-radius: 14px;
-            --dc-shadow: 0 1px 2px rgba(20, 40, 75, .05), 0 4px 14px rgba(20, 40, 75, .06);
-            --dc-shadow-hover: 0 2px 4px rgba(20, 40, 75, .06), 0 12px 28px rgba(20, 40, 75, .12);
+            --dc-shadow: 0 1px 2px rgba(10, 46, 80, .05), 0 4px 14px rgba(10, 46, 80, .06);
+            --dc-shadow-hover: 0 2px 4px rgba(10, 46, 80, .06), 0 12px 28px rgba(10, 46, 80, .12);
             --dc-bottom-nav-h: 68px;
 
             --bs-primary: var(--dc-navy);
-            --bs-primary-rgb: 20, 40, 75;
+            --bs-primary-rgb: 10, 46, 80;
             --bs-body-font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
             --bs-body-color: var(--dc-text);
             --bs-body-bg: var(--dc-bg);
@@ -76,10 +76,11 @@
         .card-header { background: #fff; border-bottom: 1px solid var(--dc-border); border-radius: var(--dc-radius) var(--dc-radius) 0 0 !important; }
         .card-footer { background: #fff; border-top: 1px solid var(--dc-border); border-radius: 0 0 var(--dc-radius) var(--dc-radius) !important; }
 
-        /* Navbar institucional (degradado azul marino) */
-        .dc-navbar { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%); border-bottom: 3px solid var(--dc-orange); padding-top: max(.5rem, env(safe-area-inset-top)); }
+        /* Navbar institucional (azul marino SINAGERD #0A2E50 + acento ámbar #F39C12) */
+        .dc-navbar { background: linear-gradient(135deg, #0A2E50 0%, #12406E 100%); border-bottom: 3px solid var(--dc-orange); padding-top: max(.5rem, env(safe-area-inset-top)); }
         .dc-navbar .navbar-brand { display: flex; align-items: center; gap: .65rem; font-weight: 700; line-height: 1.1; }
-        .dc-brand-mark { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,255,255,.12); color: #fff; font-size: 1.2rem; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+        .dc-brand-mark { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,255,255,.1); color: #fff; box-shadow: inset 0 0 0 1.5px rgba(243, 156, 18, .55); flex-shrink: 0; }
+        .dc-svg { display: inline-block; vertical-align: -.15em; flex-shrink: 0; }
         .dc-brand-sub { display: block; font-size: .68rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
         .dc-navbar .nav-link { color: rgba(255,255,255,.78); font-weight: 500; font-size: .92rem; border-radius: 8px; padding: .5rem .8rem; transition: background-color .2s ease, color .2s ease; }
         .dc-navbar .nav-link:hover { color: #fff; background: rgba(255,255,255,.08); }
@@ -96,7 +97,7 @@
         .dc-role-brigadista { background: rgba(31, 146, 84, .25); color: #b9f0d2; }
 
         /* Barra de navegación inferior (solo móvil < 768px) */
-        .dc-bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030; display: flex; background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%); border-top: 2px solid var(--dc-orange); box-shadow: 0 -6px 20px rgba(15, 23, 42, .25); padding-bottom: env(safe-area-inset-bottom); }
+        .dc-bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030; display: flex; background: linear-gradient(135deg, #0A2E50 0%, #12406E 100%); border-top: 2px solid var(--dc-orange); box-shadow: 0 -6px 20px rgba(10, 46, 80, .28); padding-bottom: env(safe-area-inset-bottom); }
         .dc-bottom-nav .dc-bn-form { flex: 1 1 0; margin: 0; display: flex; }
         .dc-bn-item { flex: 1 1 0; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem; min-height: var(--dc-bottom-nav-h); padding: .4rem .25rem; color: rgba(255,255,255,.65); text-decoration: none; font-size: .7rem; font-weight: 600; letter-spacing: .02em; background: transparent; border: 0; width: 100%; transition: color .2s ease, background-color .2s ease; }
         .dc-bn-item .bi { font-size: 1.6rem; line-height: 1; transition: transform .2s ease; }
@@ -187,6 +188,12 @@
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
         }
+        @media print {
+            .dc-navbar, .dc-bottom-nav, .dc-install-btn, .dc-search, .no-print, form[action*="dashboard"], .btn-group { display: none !important; }
+            body { background: #fff !important; padding-bottom: 0 !important; }
+            .card { box-shadow: none !important; border: 1px solid #cbd5e1 !important; }
+            .danos-clamp { -webkit-line-clamp: unset !important; max-height: none !important; overflow: visible !important; }
+        }
     </style>
     @stack('styles')
 </head>
@@ -201,10 +208,15 @@
     <nav class="navbar navbar-expand-md navbar-dark dc-navbar shadow-sm sticky-top">
         <div class="container">
             <a class="navbar-brand" href="{{ route('captura.create') }}">
-                <span class="dc-brand-mark"><i class="bi bi-shield-check"></i></span>
+                <span class="dc-brand-mark" aria-hidden="true">
+                    <svg width="26" height="26" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M32 6L54 14V31C54 45.5 44.5 55.2 32 60C19.5 55.2 10 45.5 10 31V14L32 6Z" fill="#0A2E50" stroke="#F39C12" stroke-width="4" stroke-linejoin="round"/>
+                        <path d="M28 20H36V28H44V36H36V44H28V36H20V28H28V20Z" fill="#FFFFFF"/>
+                    </svg>
+                </span>
                 <span>
                     Defensa Civil
-                    <span class="dc-brand-sub d-none d-sm-block">Empadronamiento · Emergencias</span>
+                    <span class="dc-brand-sub d-none d-sm-block">SINAGERD · Empadronamiento</span>
                 </span>
             </a>
 
@@ -241,7 +253,10 @@
                             <span class="dc-dot"></span><span class="nav-conexion-texto">En línea</span>
                         </span>
                         <span class="dc-chip dc-role-{{ $rolActual }} d-none d-lg-inline-flex" title="Rol del usuario">
-                            <i class="bi {{ $rolActual === 'coordinador' ? 'bi-person-badge' : 'bi-person-workspace' }}"></i>
+                            <svg class="dc-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
                             <span>{{ $usuarioActual->name }} · {{ $etiquetaRol }}</span>
                         </span>
                         <form action="{{ route('logout') }}" method="POST" class="d-flex">
@@ -276,8 +291,12 @@
     </main>
 
     <footer class="dc-footer py-3 mt-auto">
-        <div class="container text-center text-muted small">
-            <i class="bi bi-shield-check me-1"></i>Sistema Transaccional de Respuesta Rápida para el Empadronamiento en Zonas de Emergencia · Patrón MVC en Capas
+        <div class="container text-center text-muted small d-flex align-items-center justify-content-center gap-2 flex-wrap">
+            <svg class="dc-svg" width="16" height="16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M32 6L54 14V31C54 45.5 44.5 55.2 32 60C19.5 55.2 10 45.5 10 31V14L32 6Z" fill="#0A2E50" stroke="#F39C12" stroke-width="5" stroke-linejoin="round"/>
+                <path d="M28 20H36V28H44V36H36V44H28V36H20V28H28V20Z" fill="#FFFFFF"/>
+            </svg>
+            <span>Defensa Civil · SINAGERD Perú — Sistema de Empadronamiento en Zonas de Emergencia</span>
         </div>
     </footer>
 

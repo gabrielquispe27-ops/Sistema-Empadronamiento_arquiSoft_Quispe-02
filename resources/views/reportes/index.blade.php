@@ -20,9 +20,9 @@
 @endphp
 
 <div class="mb-4">
-    <h1 class="page-title mb-1">Reportes Estadísticos de Avance y Cobertura por Zona</h1>
+    <h1 class="page-title mb-1">Reportes de Avance y Cobertura por Zona</h1>
     <p class="page-subtitle mb-0">
-        Métricas consolidadas con respaldo en caché Redis para toma de decisiones logísticas (RF06, HU04).
+        Avance del empadronamiento y cobertura poblacional por zona de emergencia para priorizar la ayuda humanitaria.
     </p>
 </div>
 
@@ -30,25 +30,48 @@
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
         <div class="card kpi-card kpi-navy h-100"><div class="card-body d-flex align-items-center gap-3">
-            <div class="kpi-icon"><i class="bi bi-people-fill"></i></div>
+            <div class="kpi-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+            </div>
             <div><div class="kpi-label">Personas empadronadas</div><div class="kpi-value">{{ number_format($totalEmpadronados) }}</div></div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
         <div class="card kpi-card kpi-steel h-100"><div class="card-body d-flex align-items-center gap-3">
-            <div class="kpi-icon"><i class="bi bi-geo-alt-fill"></i></div>
+            <div class="kpi-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                </svg>
+            </div>
             <div><div class="kpi-label">Zonas monitoreadas</div><div class="kpi-value">{{ $totalZonas }}</div></div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
         <div class="card kpi-card kpi-green h-100"><div class="card-body d-flex align-items-center gap-3">
-            <div class="kpi-icon"><i class="bi bi-graph-up-arrow"></i></div>
+            <div class="kpi-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+                    <polyline points="16 7 22 7 22 13"/>
+                </svg>
+            </div>
             <div><div class="kpi-label">Cobertura global</div><div class="kpi-value">{{ $coberturaGlobal }}%</div></div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
         <div class="card kpi-card kpi-orange h-100"><div class="card-body d-flex align-items-center gap-3">
-            <div class="kpi-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+            <div class="kpi-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                    <path d="M12 9v4"/>
+                    <path d="M12 17h.01"/>
+                </svg>
+            </div>
             <div><div class="kpi-label">Zonas riesgo alto / crítico</div><div class="kpi-value">{{ $zonasCriticas }}</div></div>
         </div></div>
     </div>

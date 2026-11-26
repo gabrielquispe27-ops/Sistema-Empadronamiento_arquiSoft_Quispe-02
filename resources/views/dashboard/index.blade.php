@@ -1,6 +1,18 @@
 @extends('layouts.app')
 
-@section('title', 'Dashboard · Padrón Único Consolidado')
+@section('title', 'Padrón Consolidado de Damnificados · Defensa Civil')
+
+@push('styles')
+<style>
+    .kpi-filter { cursor: pointer; user-select: none; }
+    .kpi-filter.is-active { border: 2px solid var(--dc-orange) !important; box-shadow: 0 0 0 .2rem rgba(243, 156, 18, .18); }
+    .kpi-hint { font-size: .68rem; color: var(--dc-muted); margin-top: .15rem; }
+    .gps-pill { display: inline-flex; align-items: center; gap: .25rem; padding: .15rem .5rem; border-radius: 999px; background: #e1f4ea; color: #146c3d; font-size: .7rem; font-weight: 700; text-decoration: none; border: 1px solid #b6e2c9; transition: background-color .15s ease; }
+    .gps-pill:hover { background: #c9ebd9; color: #0f3d24; }
+    .danos-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; line-height: 1.45; }
+    .danos-clamp.is-expanded { -webkit-line-clamp: unset; overflow: visible; }
+</style>
+@endpush
 
 @section('content')
 @php
@@ -19,16 +31,20 @@
 
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end mb-4 gap-3">
     <div>
-        <h1 class="page-title mb-1">Padrón Único Consolidado de Damnificados</h1>
+        <h1 class="page-title mb-1">Padrón Consolidado de Damnificados</h1>
         <p class="page-subtitle mb-0">
-            Vista de explotación para el Coordinador de Defensa Civil (RF05, HU03) · Registros validados sin duplicados.
+            Consulta general de familias y personas empadronadas por zona de emergencia.
         </p>
     </div>
 
-    <!-- Filtro por zona afectada (envía GET hacia PadronController::index) -->
+    <!-- Filtro por zona afectada -->
     <form action="{{ route('dashboard.index') }}" method="GET" class="d-flex gap-2">
         <div class="input-group">
-            <span class="input-group-text"><i class="bi bi-funnel"></i></span>
+            <span class="input-group-text" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                </svg>
+            </span>
             <select name="zona_id" class="form-select" onchange="this.form.submit()">
                 <option value="">Todas las zonas afectadas</option>
                 @foreach ($zonas as $zona)
@@ -42,30 +58,53 @@
     </form>
 </div>
 
-<!-- Tarjetas KPI -->
+<!-- Tarjetas de resumen (clicables como filtros rápidos de la tabla) -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
-        <div class="card kpi-card kpi-navy h-100"><div class="card-body d-flex align-items-center gap-3">
-            <div class="kpi-icon"><i class="bi bi-people-fill"></i></div>
-            <div><div class="kpi-label">Registros {{ $zonaActual ? 'en zona' : 'totales' }}</div><div class="kpi-value">{{ number_format($totalRegistros) }}</div></div>
+        <div class="card kpi-card kpi-navy kpi-filter is-active h-100" role="button" tabindex="0" data-kpi-filter="all" title="Mostrar todos los registros de la tabla"><div class="card-body d-flex align-items-center gap-3">
+            <div class="kpi-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+            </div>
+            <div><div class="kpi-label">Registros {{ $zonaActual ? 'en zona' : 'totales' }}</div><div class="kpi-value">{{ number_format($totalRegistros) }}</div><div class="kpi-hint">Ver todos</div></div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="card kpi-card kpi-steel h-100"><div class="card-body d-flex align-items-center gap-3">
-            <div class="kpi-icon"><i class="bi bi-geo-alt-fill"></i></div>
-            <div><div class="kpi-label">Zonas activas</div><div class="kpi-value">{{ $zonasActivas }}</div></div>
+        <div class="card kpi-card kpi-steel kpi-filter h-100" role="button" tabindex="0" data-kpi-filter="gps" title="Filtrar registros con coordenadas GPS verificadas"><div class="card-body d-flex align-items-center gap-3">
+            <div class="kpi-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                </svg>
+            </div>
+            <div><div class="kpi-label">Zonas activas</div><div class="kpi-value">{{ $zonasActivas }}</div><div class="kpi-hint">Filtrar con GPS</div></div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="card kpi-card kpi-orange h-100"><div class="card-body d-flex align-items-center gap-3">
-            <div class="kpi-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
-            <div><div class="kpi-label">Zonas riesgo alto / crítico</div><div class="kpi-value">{{ $zonasCriticas }}</div></div>
+        <div class="card kpi-card kpi-orange kpi-filter h-100" role="button" tabindex="0" data-kpi-filter="critico-alto" title="Filtrar damnificados en zonas de riesgo alto o crítico"><div class="card-body d-flex align-items-center gap-3">
+            <div class="kpi-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                    <path d="M12 9v4"/>
+                    <path d="M12 17h.01"/>
+                </svg>
+            </div>
+            <div><div class="kpi-label">Zonas riesgo alto / crítico</div><div class="kpi-value">{{ $zonasCriticas }}</div><div class="kpi-hint">Filtrar prioridad alta</div></div>
         </div></div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="card kpi-card kpi-green h-100"><div class="card-body d-flex align-items-center gap-3">
-            <div class="kpi-icon"><i class="bi bi-check2-circle"></i></div>
-            <div><div class="kpi-label">Mostrando en página</div><div class="kpi-value">{{ count($damnificados) }}</div></div>
+        <div class="card kpi-card kpi-green kpi-filter h-100" role="button" tabindex="0" data-kpi-filter="all" title="Restablecer listado de la página"><div class="card-body d-flex align-items-center gap-3">
+            <div class="kpi-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <path d="m9 11 3 3L22 4"/>
+                </svg>
+            </div>
+            <div><div class="kpi-label">Mostrando en página</div><div class="kpi-value">{{ count($damnificados) }}</div><div class="kpi-hint">Página actual</div></div>
         </div></div>
     </div>
 </div>
@@ -92,18 +131,29 @@
 <!-- Tabla del padrón consolidado -->
 <div class="card">
     <div class="card-header py-3 d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
-        <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
             <h2 class="h6 fw-bold mb-0"><i class="bi bi-table me-2 text-secondary"></i>Listado consolidado</h2>
             @if ($zonaActual)
-                <span class="small text-muted">Filtrado: <strong>{{ $zonaActual->nombre }}</strong></span>
+                <span class="small text-muted">· Zona: <strong>{{ $zonaActual->nombre }}</strong></span>
             @endif
+            <span id="badgeFiltroRapido" class="badge rounded-pill text-bg-warning d-none"></span>
         </div>
-        <!-- Buscador rápido en tiempo real (DNI, nombre o zona) -->
-        @include('partials.buscador-tabla', [
-            'tabla' => 'tablaPadron',
-            'cols' => [0, 1, 2],
-            'placeholder' => 'Buscar por DNI, nombre o zona (en esta página)...',
-        ])
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <!-- Buscador rápido en tiempo real (DNI, nombre o zona) -->
+            @include('partials.buscador-tabla', [
+                'tabla' => 'tablaPadron',
+                'cols' => [0, 1, 2],
+                'placeholder' => 'Buscar por DNI, nombre o zona...',
+            ])
+            <button type="button" onclick="window.print()" class="btn btn-outline-primary btn-sm no-print" title="Imprimir o guardar padrón en PDF">
+                <svg class="dc-svg me-1" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="6 9 6 2 18 2 18 9"/>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                    <rect x="6" y="14" width="12" height="8"/>
+                </svg>
+                Imprimir
+            </button>
+        </div>
     </div>
     <div class="table-responsive">
         <table id="tablaPadron" class="table table-dc table-hover align-middle mb-0">
@@ -119,16 +169,38 @@
             </thead>
             <tbody>
                 @forelse ($damnificados as $persona)
-                    <tr>
+                    @php
+                        $nivelFila = strtolower((string) ($persona->zona->nivel_afectacion ?? 'nd'));
+                        $tieneGps = $persona->latitud !== null && $persona->longitud !== null;
+                    @endphp
+                    <tr data-nivel="{{ $nivelFila }}" data-gps="{{ $tieneGps ? '1' : '0' }}">
                         <td class="fw-bold font-monospace">{{ $persona->dni }}</td>
                         <td class="fw-semibold">{{ $persona->apellidos }}, {{ $persona->nombres }}</td>
                         <td>
-                            <span class="d-inline-flex align-items-center gap-1 small fw-semibold" style="color: var(--dc-steel);">
-                                <i class="bi bi-geo-alt"></i>{{ $persona->zona->nombre ?? 'Sin zona' }}
-                            </span>
+                            <div class="d-flex flex-column align-items-start gap-1">
+                                <span class="d-inline-flex align-items-center gap-1 small fw-semibold" style="color: var(--dc-steel);">
+                                    <i class="bi bi-geo-alt"></i>{{ $persona->zona->nombre ?? 'Sin zona' }}
+                                </span>
+                                @if ($tieneGps)
+                                    <a
+                                        href="https://www.openstreetmap.org/?mlat={{ $persona->latitud }}&mlon={{ $persona->longitud }}#map=18/{{ $persona->latitud }}/{{ $persona->longitud }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="gps-pill"
+                                        title="Ver ubicación GPS exacta en el mapa ({{ $persona->latitud }}, {{ $persona->longitud }})"
+                                    >
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/>
+                                        </svg>
+                                        <span>GPS{{ $persona->precision_gps ? ' ±'.$persona->precision_gps.'m' : '' }}</span>
+                                    </a>
+                                @endif
+                            </div>
                         </td>
                         <td>@include('partials.nivel-badge', ['nivel' => $persona->zona->nivel_afectacion ?? null])</td>
-                        <td class="small text-muted" style="min-width: 240px; max-width: 380px;">{{ $persona->danos_materiales }}</td>
+                        <td class="small text-muted" style="min-width: 240px; max-width: 380px;">
+                            <div class="danos-clamp" title="Toque para expandir o contraer el texto completo">{{ $persona->danos_materiales }}</div>
+                        </td>
                         <td class="small text-muted text-nowrap">
                             <i class="bi bi-clock me-1"></i>{{ $persona->updated_at?->format('d/m/Y H:i') }}
                         </td>
@@ -233,6 +305,52 @@
                 construir(btn.getAttribute('data-tipo-grafico'));
             });
         });
+
+        // Filtros rápidos al pulsar las tarjetas KPI + expansión de reportes largos de daños
+        const tabla = document.getElementById('tablaPadron');
+        const badgeFiltro = document.getElementById('badgeFiltroRapido');
+        const tarjetasKpi = document.querySelectorAll('.kpi-filter');
+
+        if (tabla) {
+            tabla.addEventListener('click', function (e) {
+                const clamp = e.target.closest('.danos-clamp');
+                if (clamp) clamp.classList.toggle('is-expanded');
+            });
+
+            function aplicarFiltroKpi(modo, cardActiva) {
+                tarjetasKpi.forEach(function (c) { c.classList.toggle('is-active', c === cardActiva); });
+                const filas = tabla.tBodies[0] ? tabla.tBodies[0].querySelectorAll('tr[data-nivel]') : [];
+                filas.forEach(function (tr) {
+                    const nivel = tr.getAttribute('data-nivel');
+                    const gps = tr.getAttribute('data-gps') === '1';
+                    let mostrar = true;
+                    if (modo === 'critico-alto') mostrar = (nivel === 'critico' || nivel === 'alto');
+                    else if (modo === 'gps') mostrar = gps;
+                    tr.hidden = !mostrar;
+                });
+                if (badgeFiltro) {
+                    const textos = { 'critico-alto': 'Filtro: Riesgo alto / crítico', 'gps': 'Filtro: Con ubicación GPS' };
+                    if (textos[modo]) {
+                        badgeFiltro.textContent = textos[modo];
+                        badgeFiltro.classList.remove('d-none');
+                    } else {
+                        badgeFiltro.classList.add('d-none');
+                    }
+                }
+            }
+
+            tarjetasKpi.forEach(function (card) {
+                card.addEventListener('click', function () {
+                    aplicarFiltroKpi(card.getAttribute('data-kpi-filter') || 'all', card);
+                });
+                card.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        card.click();
+                    }
+                });
+            });
+        }
     })();
 </script>
 @endpush

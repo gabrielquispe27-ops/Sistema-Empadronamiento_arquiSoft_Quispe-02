@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Captura en Campo · Empadronamiento Mobile-First')
+@section('title', 'Ficha de Empadronamiento Familiar · Defensa Civil')
 
 @push('styles')
 <style>
@@ -92,6 +92,21 @@
     .gps-offline { display: flex; align-items: flex-start; margin-top: .65rem; padding: .6rem .8rem; border-radius: 10px; font-size: .82rem; background: #fff1e0; color: #a14a00; border-left: 4px solid var(--dc-orange); }
     .gps-offline .bi { margin-top: .1rem; }
 
+    /* Ergonomía táctil (>= 44px en móvil), chips de daños frecuentes y dictado por voz */
+    .btn-touch { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: .45rem .85rem; font-size: .84rem; }
+    .dc-chips-label { font-size: .75rem; font-weight: 600; color: var(--dc-muted); margin-bottom: .35rem; display: block; }
+    .dc-chips-wrap { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: .65rem; }
+    .dc-damage-chip { min-height: 40px; padding: .4rem .75rem; border-radius: 999px; border: 1px solid #cbd5e1; background: #fff; color: var(--dc-navy); font-size: .8rem; font-weight: 600; display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .1s ease; user-select: none; }
+    .dc-damage-chip:hover { border-color: var(--dc-navy); background: var(--dc-steel-soft); }
+    .dc-damage-chip:active { transform: scale(.97); }
+    .dc-damage-chip.is-active { background: var(--dc-navy); border-color: var(--dc-navy); color: #fff; }
+    .btn-voz.is-recording { background: var(--dc-red); border-color: var(--dc-red); color: #fff; animation: vozPulso 1.2s ease-out infinite; }
+    @keyframes vozPulso { 0% { box-shadow: 0 0 0 0 rgba(201, 58, 58, .55); } 70%, 100% { box-shadow: 0 0 0 8px rgba(201, 58, 58, 0); } }
+    @media (max-width: 767.98px) {
+        .dc-damage-chip, .btn-sincronizar, .cola-toggle { min-height: 44px; }
+        .cola-toggle { display: inline-flex; align-items: center; gap: .25rem; padding: .25rem .4rem; }
+    }
+
     /* Espacio inferior para que la barra móvil no tape el botón de registro */
     .captura-page { padding-bottom: 1rem; }
     @media (max-width: 767.98px) {
@@ -109,8 +124,14 @@
         <div class="card captura-card border-0">
             <div class="card-header d-flex justify-content-between align-items-center gap-2 py-3 px-3 px-sm-4">
                 <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-person-plus-fill fs-4" style="color: var(--dc-orange);"></i>
-                    <h1>Registro Rápido de Damnificado</h1>
+                    <span class="d-inline-flex align-items-center justify-content-center rounded-3" style="width: 34px; height: 34px; background: rgba(243, 156, 18, .15); color: var(--dc-navy);" aria-hidden="true">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0A2E50" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1" fill="#F39C12" stroke="#0A2E50"/>
+                            <path d="M9 12h6M9 16h6"/>
+                        </svg>
+                    </span>
+                    <h1>Ficha de Empadronamiento Familiar</h1>
                 </div>
                 <span id="badgeConexion" class="badge-conexion"><i class="bi bi-wifi"></i> En línea</span>
             </div>
@@ -138,9 +159,12 @@
                     </div>
                 </div>
 
-                <div class="d-flex align-items-start gap-2 text-muted small mb-4">
-                    <i class="bi bi-info-circle mt-1"></i>
-                    <span>Formulario optimizado para campo (<em>Mobile-First</em> - RF01). Ante microcortes de señal, el borrador se conserva automáticamente en el dispositivo (<code>localStorage</code>).</span>
+                <div class="d-flex align-items-center gap-2 text-muted small mb-4">
+                    <svg class="dc-svg text-secondary" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="m9 12 2 2 4-4"/>
+                    </svg>
+                    <span>El avance se guarda automáticamente en este teléfono aunque se corte la señal.</span>
                 </div>
 
                 @if ($errors->any())
@@ -157,12 +181,26 @@
                 <form id="formCaptura" action="{{ route('captura.store') }}" method="POST">
                     @csrf
 
-                    <div class="captura-section"><span class="paso">1</span><i class="bi bi-person-vcard"></i> Identificación</div>
+                    <div class="captura-section">
+                        <span class="paso">1</span>
+                        <svg class="dc-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="2" y="4" width="20" height="16" rx="2"/>
+                            <circle cx="8" cy="11" r="2.5"/>
+                            <path d="M14 10h4M14 14h4M5 17c.6-1.4 1.7-2 3-2s2.4.6 3 2"/>
+                        </svg>
+                        Identificación
+                    </div>
 
                     <div class="dni-group mb-3">
-                        <label for="dni" class="form-label fw-semibold">DNI del Damnificado (8 dígitos)</label>
+                        <label for="dni" class="form-label fw-semibold">DNI del Damnificado</label>
                         <div class="input-group input-group-lg">
-                            <span class="input-group-text"><i class="bi bi-credit-card-2-front"></i></span>
+                            <span class="input-group-text" aria-hidden="true">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0A2E50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="2" y="4" width="20" height="16" rx="2.5"/>
+                                    <circle cx="8" cy="11" r="2.2"/>
+                                    <path d="M14 9.5h5M14 13.5h5M5 16.8c.6-1.3 1.7-1.8 3-1.8s2.4.5 3 1.8"/>
+                                </svg>
+                            </span>
                             <input
                                 type="text"
                                 id="dni"
@@ -178,13 +216,19 @@
                             >
                             <span class="input-group-text" aria-hidden="true">
                                 <span id="dniSpinner" class="spinner-border spinner-border-sm text-secondary" role="status"></span>
-                                <i id="dniIcono" class="bi bi-search"></i>
-                                <i id="dniCheck" class="bi bi-check-circle-fill"></i>
+                                <svg id="dniIcono" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="11" cy="11" r="7"/>
+                                    <path d="m20 20-3.5-3.5"/>
+                                </svg>
+                                <svg id="dniCheck" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f9254" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <path d="m9 11 3 3L22 4"/>
+                                </svg>
                             </span>
                         </div>
                         <div id="dniEstado" class="mt-2" aria-live="polite">
                             <i id="dniEstadoIcono" class="bi bi-shield-check"></i>
-                            <span id="dniEstadoTexto">Validación inmediata de longitud e integridad única (RF02, RF03). Se autocompletará con RENIEC.</span>
+                            <span id="dniEstadoTexto">8 dígitos — autocompleta datos con RENIEC</span>
                         </div>
                     </div>
 
@@ -217,12 +261,30 @@
                         </div>
                     </div>
 
-                    <div class="captura-section"><span class="paso">2</span><i class="bi bi-geo-alt"></i> Ubicación y daños</div>
+                    <div class="captura-section">
+                        <span class="paso">2</span>
+                        <svg class="dc-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        Ubicación y daños
+                    </div>
 
                     <div class="zona-box mb-4">
-                        <label for="zona_id" class="form-label fw-semibold">Zona de Emergencia Afectada</label>
+                        <label for="zona_id" class="form-label fw-semibold d-flex align-items-center gap-1">
+                            <svg class="dc-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F39C12" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                                <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                            <span>Zona de Emergencia Afectada</span>
+                        </label>
                         <div class="input-group input-group-lg">
-                            <span class="input-group-text"><i class="bi bi-geo-alt-fill" style="color: var(--dc-orange);"></i></span>
+                            <span class="input-group-text" aria-hidden="true">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2C7.58 2 4 5.58 4 10C4 16.08 12 22 12 22C12 22 20 16.08 20 10C20 5.58 16.42 2 12 2Z" fill="#F39C12" stroke="#0A2E50" stroke-width="1.8" stroke-linejoin="round"/>
+                                    <circle cx="12" cy="10" r="3.2" fill="#FFFFFF" stroke="#0A2E50" stroke-width="1.5"/>
+                                </svg>
+                            </span>
                             <select
                                 id="zona_id"
                                 name="zona_id"
@@ -252,7 +314,7 @@
 
                             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                                 <span class="form-label fw-semibold mb-0"><i class="bi bi-crosshair me-1" style="color: var(--dc-orange);"></i>Ubicación GPS <small class="text-muted fw-normal">(opcional)</small></span>
-                                <button type="button" id="btnGps" class="btn btn-outline-primary btn-sm">
+                                <button type="button" id="btnGps" class="btn btn-outline-primary btn-sm btn-touch">
                                     <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
                                     <i class="bi bi-geo-alt me-1"></i><span class="btn-gps-texto">Capturar ubicación GPS</span>
                                 </button>
@@ -282,14 +344,31 @@
                             </div>
                         </div>
 
-                        <div class="d-flex align-items-end justify-content-between flex-wrap gap-2 mt-4 mb-1">
+                        <div class="d-flex align-items-end justify-content-between flex-wrap gap-2 mt-4 mb-2">
                             <label for="danos_materiales" class="form-label fw-semibold mb-0">Daños Materiales Reportados</label>
-                            <div class="d-flex align-items-center gap-2">
-                                <button type="button" id="btnMejorarIa" class="btn btn-outline-primary btn-sm" title="Corrige y redacta el reporte con IA (requiere internet)">
+                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                <button type="button" id="btnDictadoVoz" class="btn btn-outline-secondary btn-sm btn-touch btn-voz" title="Dictar daños por voz">
+                                    <svg class="dc-svg me-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                        <line x1="12" y1="19" x2="12" y2="22"/>
+                                    </svg>
+                                    <span class="btn-voz-texto">Dictar</span>
+                                </button>
+                                <button type="button" id="btnMejorarIa" class="btn btn-outline-primary btn-sm btn-touch" title="Corrige y redacta el reporte con IA (requiere internet)">
                                     <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
                                     <i class="bi bi-stars me-1"></i><span class="btn-ia-texto">Mejorar con IA</span>
                                 </button>
                             </div>
+                        </div>
+                        <span class="dc-chips-label">Toque para agregar daños frecuentes:</span>
+                        <div class="dc-chips-wrap" id="chipsDanos" role="group" aria-label="Daños frecuentes">
+                            <button type="button" class="dc-damage-chip" data-chip="Techo de calamina desprendido">+ Techo desprendido</button>
+                            <button type="button" class="dc-damage-chip" data-chip="Paredes fisuradas">+ Paredes fisuradas</button>
+                            <button type="button" class="dc-damage-chip" data-chip="Vivienda inundada">+ Vivienda inundada</button>
+                            <button type="button" class="dc-damage-chip" data-chip="Corte de agua y luz">+ Sin agua / luz</button>
+                            <button type="button" class="dc-damage-chip" data-chip="Pérdida de enseres">+ Pérdida de enseres</button>
+                            <button type="button" class="dc-damage-chip" data-chip="Colapso estructural parcial">+ Colapso parcial</button>
                         </div>
                         <div id="iaEstado" class="small mb-2 d-none" role="status" aria-live="polite"></div>
                         <textarea
@@ -306,7 +385,7 @@
                     <div class="d-grid gap-2">
                         <button type="submit" id="btnEnviar" class="btn btn-success btn-lg btn-enviar fw-bold">
                             <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            <i class="bi bi-send-check-fill me-2"></i><span class="btn-enviar-texto">Enviar y Encolar Registro</span>
+                            <i class="bi bi-send-check-fill me-2"></i><span class="btn-enviar-texto">Guardar Registro</span>
                         </button>
                     </div>
                 </form>
@@ -452,8 +531,10 @@
             };
         }
 
-        // Deja el formulario listo para la siguiente persona (sin tocar ids ni names)
+        // Deja el formulario listo para la siguiente persona conservando la última zona de la brigada
+        const ZONA_FIJA_KEY = 'empadronamiento_ultima_zona_id';
         function limpiarFormulario() {
+            const zonaRecordada = localStorage.getItem(ZONA_FIJA_KEY) || '';
             campos.forEach(function (campo) {
                 const el = document.getElementById(campo);
                 if (el) el.value = '';
@@ -462,8 +543,11 @@
             const dniEl = document.getElementById('dni');
             if (dniEl) dniEl.dispatchEvent(new Event('input', { bubbles: true })); // reinicia estado RENIEC
             const zonaEl = document.getElementById('zona_id');
-            if (zonaEl) zonaEl.dispatchEvent(new Event('change'));
-            window.dispatchEvent(new CustomEvent('captura:limpiada')); // reinicia la UI de GPS/mapa
+            if (zonaEl) {
+                if (zonaRecordada) zonaEl.value = zonaRecordada;
+                zonaEl.dispatchEvent(new Event('change'));
+            }
+            window.dispatchEvent(new CustomEvent('captura:limpiada')); // reinicia la UI de GPS/mapa y chips
             localStorage.removeItem(STORAGE_KEY);
             if (dniEl) dniEl.focus();
         }
@@ -471,17 +555,17 @@
         function encolarOffline(reg, mensajeHtml) {
             const cola = leerCola();
             if (cola.some(function (r) { return r.dni === reg.dni; })) {
-                aviso('warning', 'El DNI <strong>' + esc(reg.dni) + '</strong> ya está en la cola local pendiente de envío. No se duplicó el registro.', 8000);
+                aviso('warning', 'El DNI <strong>' + esc(reg.dni) + '</strong> ya está guardado en este teléfono pendiente de envío.', 8000);
                 return false;
             }
             cola.push(reg);
             if (!guardarCola(cola)) {
-                aviso('danger', 'No se pudo guardar el registro en el dispositivo (almacenamiento lleno o bloqueado).');
+                aviso('danger', 'No se pudo guardar el registro en el teléfono (almacenamiento lleno o bloqueado).');
                 return false;
             }
             limpiarFormulario();
             refrescarPanel();
-            aviso('warning', mensajeHtml || '<strong>Sin conexión.</strong> Registro guardado en el dispositivo. Se enviará al recuperar la señal.', 7000);
+            aviso('warning', mensajeHtml || '<strong>Sin señal.</strong> Registro guardado en este teléfono. Se enviará automáticamente al recuperar la conexión.', 7000);
             return true;
         }
 
@@ -573,10 +657,10 @@
                     }
                     if (res.ok || res.redirected) {
                         limpiarFormulario();
-                        aviso('success', '<strong>Registro enviado.</strong> Recibido y encolado para procesamiento asíncrono.', 5000);
+                        aviso('success', '<strong>Registro guardado.</strong> La ficha de empadronamiento fue recibida correctamente.', 5000);
                         return null;
                     }
-                    encolarOffline(reg, '<strong>El servidor no respondió correctamente (HTTP ' + res.status + ').</strong> Registro guardado en el dispositivo para reintentar.');
+                    encolarOffline(reg, '<strong>No se pudo conectar con la central.</strong> El registro quedó guardado en este teléfono para reintentar.');
                     return null;
                 })
                 .catch(function () {
@@ -665,11 +749,18 @@
         // Al cargar la página con conexión y pendientes → sincronizar automáticamente
         setTimeout(function () { if (navigator.onLine && leerCola().length) sincronizar(false); }, 600);
 
-        // Indicador de nivel de afectación de la zona elegida (solo presentación)
+        // Indicador de nivel de afectación de la zona elegida + persistencia de última zona usada
         const zonaSelect = document.getElementById('zona_id');
         const zonaNivel = document.getElementById('zonaNivel');
+        if (zonaSelect && !zonaSelect.value) {
+            const guardadaZona = localStorage.getItem(ZONA_FIJA_KEY);
+            if (guardadaZona) zonaSelect.value = guardadaZona;
+        }
         function mostrarNivelZona() {
             if (!zonaSelect || !zonaNivel) return;
+            if (zonaSelect.value) {
+                try { localStorage.setItem(ZONA_FIJA_KEY, zonaSelect.value); } catch (e) {}
+            }
             const opt = zonaSelect.options[zonaSelect.selectedIndex];
             const m = opt && opt.value ? opt.text.trim().match(/\(([^()]+)\)\s*$/) : null;
             if (!m) {
@@ -679,12 +770,103 @@
             }
             const nivel = m[1].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             const clase = ['critico', 'alto', 'medio', 'bajo'].indexOf(nivel) >= 0 ? nivel : 'nd';
-            zonaNivel.innerHTML = 'Nivel de afectación: <span class="badge-nivel badge-nivel-' + clase + '">' + m[1] + '</span>';
+            zonaNivel.innerHTML = 'Nivel de afectación: <span class="badge-nivel badge-nivel-' + clase + '">' + m[1] + '</span>' +
+                '<span class="ms-auto small text-muted"><i class="bi bi-pin-angle-fill me-1"></i>Zona fijada para siguientes fichas</span>';
             zonaNivel.classList.add('is-visible');
         }
         if (zonaSelect) {
             zonaSelect.addEventListener('change', mostrarNivelZona);
             mostrarNivelZona();
+        }
+
+        // Chips táctiles de daños frecuentes + Dictado por voz (Web Speech API)
+        const areaDanos = document.getElementById('danos_materiales');
+        const chipsCont = document.getElementById('chipsDanos');
+        const btnVoz = document.getElementById('btnDictadoVoz');
+        const estadoIa = document.getElementById('iaEstado');
+
+        function sincronizarEstadoChips() {
+            if (!chipsCont || !areaDanos) return;
+            const textoActual = areaDanos.value.toLowerCase();
+            chipsCont.querySelectorAll('.dc-damage-chip').forEach(function (chip) {
+                const frase = (chip.getAttribute('data-chip') || '').toLowerCase();
+                chip.classList.toggle('is-active', frase !== '' && textoActual.indexOf(frase) !== -1);
+            });
+        }
+
+        if (chipsCont && areaDanos) {
+            chipsCont.addEventListener('click', function (e) {
+                const chip = e.target.closest('.dc-damage-chip');
+                if (!chip) return;
+                const frase = chip.getAttribute('data-chip') || '';
+                if (!frase) return;
+                const actual = areaDanos.value.trim();
+                const regex = new RegExp('(?:^|,\\s*|\\.\\s*)' + frase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+                if (regex.test(actual)) {
+                    areaDanos.value = actual.replace(regex, '').replace(/^[\s,.]+|[\s,]+$/g, '');
+                } else {
+                    const sep = actual === '' ? '' : (/[.;,]$/.test(actual) ? ' ' : ', ');
+                    const max = areaDanos.maxLength > 0 ? areaDanos.maxLength : 1000;
+                    areaDanos.value = (actual + sep + frase).slice(0, max);
+                }
+                areaDanos.dispatchEvent(new Event('input', { bubbles: true }));
+                sincronizarEstadoChips();
+            });
+            areaDanos.addEventListener('input', sincronizarEstadoChips);
+            window.addEventListener('captura:limpiada', sincronizarEstadoChips);
+            sincronizarEstadoChips();
+        }
+
+        if (btnVoz && areaDanos) {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const vozTexto = btnVoz.querySelector('.btn-voz-texto');
+            let rec = null;
+            let grabando = false;
+
+            btnVoz.addEventListener('click', function () {
+                if (!SpeechRec) {
+                    if (estadoIa) {
+                        estadoIa.className = 'small mb-2 text-warning-emphasis';
+                        estadoIa.textContent = 'El dictado por voz no está disponible en este navegador.';
+                    }
+                    return;
+                }
+                if (grabando && rec) {
+                    rec.stop();
+                    return;
+                }
+                rec = new SpeechRec();
+                rec.lang = 'es-PE';
+                rec.continuous = false;
+                rec.interimResults = false;
+
+                rec.onstart = function () {
+                    grabando = true;
+                    btnVoz.classList.add('is-recording');
+                    if (vozTexto) vozTexto.textContent = 'Escuchando...';
+                };
+                rec.onresult = function (ev) {
+                    const trans = ev.results && ev.results[0] && ev.results[0][0] ? ev.results[0][0].transcript.trim() : '';
+                    if (trans) {
+                        const actual = areaDanos.value.trim();
+                        const sep = actual === '' ? '' : (/[.;,]$/.test(actual) ? ' ' : ', ');
+                        const max = areaDanos.maxLength > 0 ? areaDanos.maxLength : 1000;
+                        areaDanos.value = (actual + sep + trans).slice(0, max);
+                        areaDanos.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                };
+                rec.onend = function () {
+                    grabando = false;
+                    btnVoz.classList.remove('is-recording');
+                    if (vozTexto) vozTexto.textContent = 'Dictar';
+                };
+                rec.onerror = function () {
+                    grabando = false;
+                    btnVoz.classList.remove('is-recording');
+                    if (vozTexto) vozTexto.textContent = 'Dictar';
+                };
+                try { rec.start(); } catch (e) {}
+            });
         }
 
         // Autocompletado de Nombres y Apellidos al ingresar un DNI de 8 dígitos
