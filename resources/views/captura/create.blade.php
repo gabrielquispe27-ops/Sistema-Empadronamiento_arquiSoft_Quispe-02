@@ -217,7 +217,16 @@
                         </div>
                         <div id="zonaNivel" class="zona-nivel" aria-live="polite"></div>
 
-                        <label for="danos_materiales" class="form-label fw-semibold mt-4">Daños Materiales Reportados</label>
+                        <div class="d-flex align-items-end justify-content-between flex-wrap gap-2 mt-4 mb-1">
+                            <label for="danos_materiales" class="form-label fw-semibold mb-0">Daños Materiales Reportados</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" id="btnMejorarIa" class="btn btn-outline-primary btn-sm" title="Corrige y redacta el reporte con IA (requiere internet)">
+                                    <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+                                    <i class="bi bi-stars me-1"></i><span class="btn-ia-texto">Mejorar con IA</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="iaEstado" class="small mb-2 d-none" role="status" aria-live="polite"></div>
                         <textarea
                             id="danos_materiales"
                             name="danos_materiales"
@@ -714,6 +723,92 @@
                     });
             });
         }
+    })();
+</script>
+@endpush
+
+@push('scripts')
+<script>
+    // Mejorar reporte con IA (Gemini). Solo reescribe #danos_materiales; no interviene en cola offline, RENIEC ni chips.
+    (function () {
+        const btn = document.getElementById('btnMejorarIa');
+        const area = document.getElementById('danos_materiales');
+        const estado = document.getElementById('iaEstado');
+        const form = document.getElementById('formCaptura');
+        if (!btn || !area || !form) return;
+
+        const spinner = btn.querySelector('.spinner-border');
+        const etiqueta = btn.querySelector('.btn-ia-texto');
+        const ETIQUETA_ORIGINAL = etiqueta.textContent;
+        let ocupado = false;
+        let timerEstado = null;
+
+        function mostrar(tipo, msg) {
+            const colores = { info: 'text-secondary', warning: 'text-warning-emphasis', danger: 'text-danger', success: 'text-success' };
+            estado.className = 'small mb-2 ' + (colores[tipo] || 'text-secondary');
+            estado.textContent = msg;
+            clearTimeout(timerEstado);
+            if (tipo !== 'info') timerEstado = setTimeout(function () { estado.classList.add('d-none'); }, 6000);
+        }
+
+        function ocupar(on) {
+            ocupado = on;
+            btn.disabled = on;
+            spinner.classList.toggle('d-none', !on);
+            etiqueta.textContent = on ? 'Mejorando...' : ETIQUETA_ORIGINAL;
+        }
+
+        btn.addEventListener('click', async function () {
+            if (ocupado) return;
+            const texto = area.value.trim();
+
+            if (texto.length < 5) {
+                mostrar('warning', 'Escriba primero el reporte de daños (mínimo 5 caracteres).');
+                area.focus();
+                return;
+            }
+            if (!navigator.onLine) {
+                mostrar('warning', 'Requiere conexión a internet.');
+                return;
+            }
+
+            const tokenInput = form.querySelector('input[name="_token"]');
+            ocupar(true);
+            mostrar('info', 'Mejorando redacción con IA...');
+
+            try {
+                const res = await fetch('/captura/mejorar-reporte', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': tokenInput ? tokenInput.value : ''
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ texto: texto })
+                });
+                const data = await res.json().catch(function () { return {}; });
+
+                if (!res.ok || !data.texto_mejorado) {
+                    let msg = data.message || 'No se pudo mejorar el reporte. Intente nuevamente.';
+                    if (res.status === 419) msg = 'La sesión caducó. Recargue la página para usar la IA.';
+                    if (res.status === 422 && data.errors && data.errors.texto) msg = data.errors.texto[0];
+                    mostrar('danger', msg);
+                    return;
+                }
+
+                const max = area.maxLength > 0 ? area.maxLength : 1000;
+                area.value = String(data.texto_mejorado).slice(0, max);
+                // Dispara el guardado automático del borrador local (listener 'input' del formulario).
+                area.dispatchEvent(new Event('input', { bubbles: true }));
+                mostrar('success', 'Reporte mejorado. Revíselo antes de enviar.');
+            } catch (e) {
+                mostrar('danger', 'No se pudo conectar con el servicio de IA. Verifique su conexión.');
+            } finally {
+                ocupar(false);
+            }
+        });
     })();
 </script>
 @endpush
